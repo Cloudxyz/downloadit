@@ -77,7 +77,7 @@ function render(result:Extract<Reply,{ok:true}>) {
   }
 }
 async function act(message:Request){
-  if(active)return;active=true;
+  if(active){if(message.op!=='list')status.textContent=messages.busy;return;}active=true;
   try{
     const data:unknown=await chrome.runtime.sendMessage(message);
     if(!reply(data))throw Error();

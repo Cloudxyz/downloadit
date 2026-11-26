@@ -39,6 +39,9 @@ internal class PeerServer(private val context: Context) {
     @Volatile private var active: SSLSocket? = null
     private var challenge = ""
     private var deadline = 0L
+    private val timeouts = java.util.concurrent.ScheduledThreadPoolExecutor(1){ task ->
+        Thread(task,"DownloadIT-peer-timeout").apply {isDaemon=true}
+    }.apply {removeOnCancelPolicy=true;setKeepAliveTime(10,java.util.concurrent.TimeUnit.SECONDS);allowCoreThreadTimeOut(true)}
     @Volatile var ip = ""; private set
     fun identities() = clients.all.keys.sorted()
     @Synchronized fun revoke(id: String) { check(clients.edit().remove(id).commit()) }
@@ -83,8 +86,8 @@ internal class PeerServer(private val context: Context) {
                         active=it
                         if(server!==listener || !privateIp(it.inetAddress) || cm.activeNetwork!=network) return@use
                         it.soTimeout=3500
-                        it.startHandshake()
-                        serve(it,listener)
+                        val expiry=timeouts.schedule({socket.close()},6,java.util.concurrent.TimeUnit.SECONDS)
+                        try { it.startHandshake(); serve(it,listener) } finally { expiry.cancel(false) }
                     }
                 } catch(_:Exception) { /* A failed handshake or frame ends this connection. */ }
                 finally { active=null }
@@ -111,7 +114,9 @@ internal class PeerServer(private val context: Context) {
         val input=DataInputStream(socket.inputStream)
         val size=input.readInt();require(size in 2..4096)
         val bytes=ByteArray(size);input.readFully(bytes)
-        val msg=JSONObject(bytes.toString(Charsets.UTF_8))
+        val text=Charsets.UTF_8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes)).toString()
+        require(objectEnd(text,0)==text.length)
+        val msg=JSONObject(text)
         require(msg.version() && msg.str("nonce")==nonce)
         val response=synchronized(this) {
             require(server===listener)

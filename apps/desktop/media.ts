@@ -53,12 +53,14 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
   const destination=join(dir,name(selected.title));
   const media=await resource(selected.url,'media',signal);
   const part=join(dir,item.job+'.part');
+  let created=false;
   try{
     const length=Number(media.headers['content-length']);
     if(!Number.isSafeInteger(length)||length<12||length>(audio?16*1024*1024:maxBytes)||media.headers['content-type']?.split(';')[0]!== (audio?'audio/webm':'video/mp4'))throw new Failure('unsupported');
     const disk=await statfs(dir);
     if(disk.bavail*disk.bsize<length+(audio?72:32)*1024*1024)throw new Failure('storage');
     const file=await open(part,'wx',0o600);
+    created=true;
     try{
       let received=0;
       for await(const chunk of media){
@@ -94,5 +96,5 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
     signal.throwIfAborted();
     // A generated job suffix allows safe crash reconciliation. link fails if the destination exists.
     await link(part,destination);
-  }finally{media.destroy();await unlink(part).catch(()=>{});}
+  }finally{media.destroy();if(created)await unlink(part).catch(()=>{});}
 }

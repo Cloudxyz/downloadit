@@ -49,8 +49,8 @@ internal object Jobs {
                 obj.getInt(4), obj.getString(5), obj.getInt(6), obj.getString(7), obj.getString(8),obj.optString(9,"mp4"),obj.optBoolean(10,false))
             require(UUID.fromString(row.key).toString() == row.key && videoIdPattern.matches(row.id) &&
                 validProfile(row.format,row.height) && row.attempts in 1..3 && folderValid(row.folder))
-            if (row.state == "running") {
-                row.state = "failed"; row.error = "interrupted"
+            if (row.state == "running" || row.uri.isNotEmpty()) {
+                if(row.state=="running"){row.state = "failed"; row.error = "interrupted"}
                 if (row.uri.isNotEmpty()) {
                     val uri = Uri.parse(row.uri)
                     require(uri.scheme == "content" && uri.authority == MediaStore.AUTHORITY)

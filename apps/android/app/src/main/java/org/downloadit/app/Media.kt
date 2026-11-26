@@ -71,7 +71,8 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
             bytes.toString("UTF-8")
         }
         val marker = Regex("\\bvar ytInitialPlayerResponse\\s*=\\s*(?=\\{)").find(page) ?: throw Problem("unsupported")
-        val data = JSONTokener(page.substring(marker.range.last+1)).nextValue() as? JSONObject ?: throw Problem("unsupported")
+        val start=marker.range.last+1
+        val data = JSONTokener(page.substring(start,objectEnd(page,start))).nextValue() as? JSONObject ?: throw Problem("unsupported")
         val info = data.getJSONObject("videoDetails")
         if (data.getJSONObject("playabilityStatus").optString("status") != "OK" || info.optString("videoId") != task.id ||
             info.optBoolean("isPrivate",true) || info.optBoolean("isLiveContent",false)) throw Problem("unsupported")

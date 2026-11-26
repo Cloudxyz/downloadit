@@ -4,6 +4,14 @@ using System.IO;
 using System.Threading;
 
 internal static class Launcher {
+    private static async System.Threading.Tasks.Task Pump(Stream source, Stream destination) {
+        var buffer = new byte[16384];
+        int count;
+        while ((count = await source.ReadAsync(buffer,0,buffer.Length)) != 0) {
+            await destination.WriteAsync(buffer,0,count);
+            await destination.FlushAsync();
+        }
+    }
     private const string Origin = "chrome-extension://gnjjgfaigfdmkfmjmjnokalgifpjfccd/";
     internal static int Main(string[] args) {
         if (args.Length == 1 && (args[0] == "protect" || args[0] == "unprotect")) {
@@ -23,7 +31,7 @@ internal static class Launcher {
         }
         if (args.Length < 1 || args[0] != Origin) return 1;
         // Serialize browser profiles against the same user's queue.
-        using (var mutex = new Mutex(false, @"Local\DownloadIT-" + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value)) {
+        using (var mutex = new Mutex(false, @"Global\DownloadIT-" + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value)) {
             try { if (!mutex.WaitOne(0)) return 2; } catch (AbandonedMutexException) { }
             try {
                 var root = AppDomain.CurrentDomain.BaseDirectory;
@@ -37,9 +45,9 @@ internal static class Launcher {
                 start.WorkingDirectory = root;
                 foreach (var key in new[]{"NODE_OPTIONS","NODE_PATH","NODE_EXTRA_CA_CERTS","NODE_TLS_REJECT_UNAUTHORIZED","SSL_CERT_FILE","SSL_CERT_DIR","NODE_USE_ENV_PROXY"}) start.EnvironmentVariables.Remove(key);
                 using (var child = Process.Start(start)) {
-                    var input = Console.OpenStandardInput().CopyToAsync(child.StandardInput.BaseStream);
+                    var input = Pump(Console.OpenStandardInput(),child.StandardInput.BaseStream);
                     input.ContinueWith(task => { try { child.StandardInput.Close(); } catch (IOException) { } });
-                    child.StandardOutput.BaseStream.CopyToAsync(Console.OpenStandardOutput()).GetAwaiter().GetResult();
+                    Pump(child.StandardOutput.BaseStream,Console.OpenStandardOutput()).GetAwaiter().GetResult();
                     child.WaitForExit();
                     return child.ExitCode;
                 }
