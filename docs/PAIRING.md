@@ -7,3 +7,5 @@ Select the Android destination before confirming a download. Keep the app visibl
 **Revoke PC** on Android invalidates the credential. **Forget selected device** on Windows removes it locally. Guest Wi-Fi client isolation, a firewall or a changed phone IP can prevent connections. Re-pair after an address change. The receiver binds only its private Wi-Fi IPv4 address on TCP 42189 and accepts private clients while enabled. Remote access requires a separately configured private route and firewall policy on the owner's network. Never forward this port on a public router.
 
 Pairing, revocation, certificate compatibility and camera operation have been build-checked only.
+
+Loss of the selected default Wi-Fi network or its bound address closes the receiver and invalidates the outstanding QR. Reconnect explicitly on the phone after changing networks. Existing peer credentials remain available for future authorized receiver sessions.

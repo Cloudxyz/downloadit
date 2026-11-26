@@ -2,6 +2,8 @@ package org.downloadit.app
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.SystemClock
 import android.security.keystore.KeyGenParameterSpec
@@ -37,6 +39,7 @@ internal class PeerServer(private val context: Context) {
     private val alias = "DownloadIT.receiver.v1"
     @Volatile private var server: SSLServerSocket? = null
     @Volatile private var active: SSLSocket? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var challenge = ""
     private var deadline = 0L
     private val timeouts = java.util.concurrent.ScheduledThreadPoolExecutor(1){ task ->
@@ -77,20 +80,38 @@ internal class PeerServer(private val context: Context) {
             listener.bind(InetSocketAddress(local,42189),2)
             ip=local.hostAddress ?: throw Problem("network")
             server=listener
-        } catch(e:Exception){listener.close();throw e}
+            val callback=object: ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(available: Network) { if(available!=network)closeIfCurrent(listener) }
+                override fun onLost(lost: Network) { if(lost==network)closeIfCurrent(listener) }
+                override fun onCapabilitiesChanged(changed: Network,caps: NetworkCapabilities) {
+                    if(changed==network && !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))closeIfCurrent(listener)
+                }
+                override fun onLinkPropertiesChanged(changed: Network,properties: LinkProperties) {
+                    if(changed==network && properties.linkAddresses.none {it.address==local})closeIfCurrent(listener)
+                }
+            }
+            cm.registerDefaultNetworkCallback(callback)
+            networkCallback=callback
+            if(cm.activeNetwork!=network)throw Problem("network")
+        } catch(e:Exception){if(server===listener)close() else listener.close();throw e}
         Thread({
             while(!listener.isClosed) {
                 try {
                     val socket=listener.accept() as SSLSocket
                     socket.use {
-                        active=it
-                        if(server!==listener || !privateIp(it.inetAddress) || cm.activeNetwork!=network) return@use
+                        if(!privateIp(it.inetAddress) || cm.activeNetwork!=network) return@use
+                        synchronized(this) {
+                            if(server!==listener)return@use
+                            active=socket
+                        }
                         it.soTimeout=3500
                         val expiry=timeouts.schedule({socket.close()},6,java.util.concurrent.TimeUnit.SECONDS)
-                        try { it.startHandshake(); serve(it,listener) } finally { expiry.cancel(false) }
+                        try { it.startHandshake(); serve(it,listener,network) } finally {
+                            expiry.cancel(false)
+                            synchronized(this){if(active===socket)active=null}
+                        }
                     }
                 } catch(_:Exception) { /* A failed handshake or frame ends this connection. */ }
-                finally { active=null }
             }
         },"DownloadIT-peer").apply {isDaemon=true;start()}
     }
@@ -101,9 +122,18 @@ internal class PeerServer(private val context: Context) {
         return JSONObject().put("v",1).put("ip",ip).put("cert",Base64.encodeToString(cert,Base64.NO_WRAP)).put("challenge",challenge).toString()
     }
     @Synchronized fun close() {
-        challenge="";deadline=0;server?.close();server=null;active?.close();ip=""
+        challenge="";deadline=0;ip=""
+        val listener=server;server=null
+        val socket=active;active=null
+        val callback=networkCallback;networkCallback=null
+        try { listener?.close() } finally {
+            try { socket?.close() } finally {
+                if(callback!=null)context.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
+            }
+        }
     }
-    private fun serve(socket: SSLSocket,listener: SSLServerSocket) {
+    @Synchronized private fun closeIfCurrent(listener: SSLServerSocket) { if(server===listener)close() }
+    private fun serve(socket: SSLSocket,listener: SSLServerSocket,network: Network) {
         val out=DataOutputStream(socket.outputStream)
         fun send(json: JSONObject) {
             val bytes=json.toString().toByteArray();require(bytes.size<=32768)
@@ -119,7 +149,7 @@ internal class PeerServer(private val context: Context) {
         val msg=JSONObject(text)
         require(msg.version() && msg.str("nonce")==nonce)
         val response=synchronized(this) {
-            require(server===listener)
+            require(server===listener && context.getSystemService(ConnectivityManager::class.java).activeNetwork==network)
             when(msg.str("op")) {
                 "pair" -> {
                     require(msg.keysAre("v","op","nonce","challenge") && challenge.isNotEmpty() &&

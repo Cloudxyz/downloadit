@@ -26,6 +26,7 @@ Windows installations now activate a complete per-install host directory. A stan
 - Source builds, developer installation and unpacked extension loading are available. Signed installers, APK releases, store publication and device compatibility certification are pending.
 - CodeGraph indexes local source and shared symbols. Native Messaging, Android intents and service lifecycle, TLS messages, generated WebAssembly bindings and OS keystore calls cross runtime boundaries that a static index cannot verify.
 - The merged Android manifest exposes only the launcher/Share Sheet activity. The download service and AndroidX startup provider are private. The optional AndroidX profile-install broadcast receiver is excluded.
+- The visible receiver observes its selected Wi-Fi network and address, closes on loss and checks network identity again before applying a peer command. Returning to Wi-Fi requires explicitly reopening the receiver.
 - Android retains a pending MediaStore URI across cancellation and failed cleanup. Retry and history deletion preserve that record until cleanup finishes. On process restart recovery checks the exact primary-volume media collection and deletes only a still-pending row. Restore unavailable storage and restart the app to retry recovery.
 
 See [installation](INSTALLATION.md), [Android runtime review](ANDROID_RUNTIME.md) and [extractor setup](EXTRACTOR.md) for environment-specific requirements.
