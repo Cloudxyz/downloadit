@@ -12,7 +12,7 @@
     "build": "tsc && node apps/extension/build.mjs && node apps/desktop/build.mjs"
   },
   "devDependencies": {
-    "@types/chrome": "0.1.32",
+    "@types/chrome": "0.3.7",
     "@types/node": "24.10.1",
     "esbuild": "0.25.12",
     "typescript": "5.9.3"
