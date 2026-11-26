@@ -25,7 +25,7 @@ function player(html:string):unknown {
 function stream(data:unknown,item:Job,approved?:Set<string>){
   if(!record(data)||!record(data.playabilityStatus)||data.playabilityStatus.status!=='OK'||
     !record(data.videoDetails)||data.videoDetails.videoId!==item.id||data.videoDetails.isPrivate!==false||
-    data.videoDetails.isLiveContent===true||!record(data.streamingData)||!Array.isArray(data.streamingData.formats))throw new Failure('unsupported');
+    data.videoDetails.isLiveContent===true||!record(data.streamingData))throw new Failure('unsupported');
   const duration=Number(data.videoDetails.lengthSeconds);
   if(!Number.isSafeInteger(duration)||duration<1||duration>(item.format==='mp3'?900:3600))throw new Failure('limit');
   if(item.format==='mp3'){
@@ -36,6 +36,7 @@ function stream(data:unknown,item:Job,approved?:Set<string>){
     if(!audio||typeof audio.url!=='string')throw new Failure('unsupported');
     return {url:audio.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
   }
+  if(!Array.isArray(data.streamingData.formats))throw new Failure('unsupported');
   const formats=data.streamingData.formats.filter(record).filter(f=>typeof f.url==='string'&&(!approved||approved.has(f.url))&&!f.drmFamilies&&!f.licenseInfos&&
     !f.signatureCipher&&!f.cipher&&typeof f.mimeType==='string'&&/^video\/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"$/.test(f.mimeType)&&
     typeof f.height==='number'&&f.height>0&&f.height<=item.quality);
