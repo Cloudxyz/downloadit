@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
 class MainActivity: ComponentActivity() {
+    private val receiver by lazy { PeerServer(applicationContext) }
+    override fun onStop() { receiver.close(); super.onStop() }
     private val notifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val es get() = resources.configuration.locales[0].language == "es"
     internal fun tr(en: String, sp: String) = if (es) sp else en
@@ -33,6 +35,7 @@ class MainActivity: ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         Jobs.init(this)
         val prefs = getSharedPreferences("options",0)
         val shared = if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") intent.getStringExtra(Intent.EXTRA_TEXT)?.take(2048) ?: "" else ""
@@ -99,6 +102,7 @@ class MainActivity: ComponentActivity() {
                         }
                         if(jobs.any { it.state=="queued" }) TextButton({act { start() }}) {Text(tr("Resume queue","Continuar cola"))}
                         TextButton({act { Jobs.clear() }}) { Text(tr("Clear finished history","Borrar historial finalizado")) }
+                        Pairing(receiver)
                     }
                 }
             }

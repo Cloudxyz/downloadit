@@ -2,12 +2,13 @@ import { fromUrl } from '../../packages/core/video.js';
 import { record,exact } from '../../packages/security/fields.js';
 import { request,type Request } from '../../packages/protocol/messages.js';
 import { reply,type Reply } from '../../packages/protocol/results.js';
+import { management,devices,type Devices,type Management } from '../../packages/protocol/peers.js';
 
 const panel = chrome.runtime.getURL('panel.html');
 let port: chrome.runtime.Port | undefined;
-let waiting: ((result:Reply)=>void) | undefined;
+let waiting: ((result:Reply|Devices)=>void) | undefined;
 let opening = false;
-function send(message:Request): Promise<Reply> {
+function send(message:Request|Management): Promise<Reply|Devices> {
   if (waiting) return Promise.resolve({ok:false,error:'busy'});
   if (!chrome.runtime.connectNative) return Promise.resolve({ok:false,error:'unavailable'});
   return new Promise(resolve=>{
@@ -18,7 +19,7 @@ function send(message:Request): Promise<Reply> {
         const connection = chrome.runtime.connectNative('org.downloadit.host');
         port = connection;
         connection.onMessage.addListener((data:unknown)=>{
-          if (connection===port) waiting?.(reply(data)?data:{ok:false,error:'invalid'});
+          if (connection===port) waiting?.(reply(data)||devices(data)?data:{ok:false,error:'invalid'});
         });
         connection.onDisconnect.addListener(()=>{
           void chrome.runtime.lastError;
@@ -31,7 +32,7 @@ function send(message:Request): Promise<Reply> {
 }
 chrome.runtime.onMessage.addListener((value:unknown,sender,respond)=>{
   if (sender.id!==chrome.runtime.id || sender.frameId!==0 || !sender.url) return false;
-  if (sender.url.split('?')[0]===panel && request(value)) {
+  if (sender.url.split('?')[0]===panel && (request(value)||management(value))) {
     void send(value).then(respond);
     return true;
   }

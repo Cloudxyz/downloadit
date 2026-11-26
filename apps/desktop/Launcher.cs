@@ -6,6 +6,21 @@ using System.Threading;
 internal static class Launcher {
     private const string Origin = "chrome-extension://gnjjgfaigfdmkfmjmjnokalgifpjfccd/";
     internal static int Main(string[] args) {
+        if (args.Length == 1 && (args[0] == "protect" || args[0] == "unprotect")) {
+            using (var input = Console.OpenStandardInput())
+            using (var memory = new MemoryStream()) {
+                var block = new byte[4096]; int count;
+                while ((count = input.Read(block,0,block.Length)) > 0) {
+                    if (memory.Length + count > 65536) return 1;
+                    memory.Write(block,0,count);
+                }
+                var scope = System.Security.Cryptography.DataProtectionScope.CurrentUser;
+                var output = args[0] == "protect" ? System.Security.Cryptography.ProtectedData.Protect(memory.ToArray(),null,scope)
+                    : System.Security.Cryptography.ProtectedData.Unprotect(memory.ToArray(),null,scope);
+                Console.OpenStandardOutput().Write(output,0,output.Length);
+                return 0;
+            }
+        }
         if (args.Length < 1 || args[0] != Origin) return 1;
         // Serialize browser profiles against the same user's queue.
         using (var mutex = new Mutex(false, @"Local\DownloadIT-" + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value)) {

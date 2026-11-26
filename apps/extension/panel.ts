@@ -1,6 +1,8 @@
 import { videoId,quality, audioRates,videoHeights,type Format } from '../../packages/core/video.js';
 import { reply,type Reply,type Fault } from '../../packages/protocol/results.js';
 import type { Request } from '../../packages/protocol/messages.js';
+import {devices,type Management} from '../../packages/protocol/peers.js';
+import {scan} from './scanner.js';
 
 const es = navigator.language.startsWith('es');
 document.documentElement.lang = es?'es':'en';
@@ -78,4 +80,37 @@ const clear=document.querySelector<HTMLButtonElement>('#clear')!;
 clear.textContent=t('Clear finished history','Borrar historial finalizado');
 clear.onclick=()=>void act({v:1,op:'clear',target:destination.value});
 const refresh=()=>void act({v:1,op:'list',target:destination.value});
-refresh();setInterval(()=>{if(!document.hidden)refresh();},3000);
+const controls=document.createElement('section'),heading=document.createElement('h2');
+heading.textContent=t('Paired devices','Dispositivos vinculados');
+const pair=document.createElement('button'),forget=document.createElement('button'),preview=document.createElement('video');
+pair.textContent=t('Scan Android QR','Escanear QR de Android');
+forget.textContent=t('Forget selected device','Olvidar dispositivo seleccionado');
+preview.style.maxWidth='100%';preview.playsInline=true;
+controls.append(heading,pair,forget,preview);document.querySelector('main')!.append(controls);
+let scanning:AbortController|undefined;
+async function manage(message:Management){
+  if(active)return;active=true;
+  try{
+    const data:unknown=await chrome.runtime.sendMessage(message);
+    if(!devices(data)){status.textContent=reply(data)&&!data.ok?messages[data.error]:messages.invalid;return;}
+    const preferred=(await chrome.storage.local.get('destination')).destination;
+    destination.length=1;
+    for(const id of data.devices)destination.add(new Option('Android · '+id.slice(0,8),id));
+    destination.value=typeof preferred==='string'&&data.devices.includes(preferred)?preferred:(data.devices[0]??'desktop');
+    if(preferred==='desktop')destination.value='desktop';
+    forget.disabled=destination.value==='desktop';last='';status.textContent='';
+  }catch{status.textContent=messages.unavailable;}finally{active=false;}
+}
+destination.onchange=()=>{void chrome.storage.local.set({destination:destination.value});forget.disabled=destination.value==='desktop';last='';refresh();};
+forget.onclick=()=>void manage({v:1,op:'forget',id:destination.value});
+pair.onclick=async()=>{
+  if(scanning){scanning.abort();return;}
+  scanning=new AbortController();const timer=setTimeout(()=>scanning?.abort(),90000);
+  pair.textContent=t('Stop camera','Detener cámara');
+  try{const offer=await scan(preview,scanning.signal);if(!scanning.signal.aborted)await manage({v:1,op:'pair',offer});}
+  catch{status.textContent=t('Scan ended. Check camera access and the QR expiry.','Escaneo finalizado. Comprueba la cámara y la vigencia del QR.');}
+  finally{clearTimeout(timer);scanning=undefined;pair.textContent=t('Scan Android QR','Escanear QR de Android');}
+};
+window.addEventListener('pagehide',()=>scanning?.abort());
+void manage({v:1,op:'peers'}).then(refresh);
+setInterval(()=>{if(!document.hidden&&!scanning)refresh();},3000);

@@ -1,5 +1,8 @@
 {
   "name": "@download-it/extension",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "qr": "0.7.2"
+  }
 }

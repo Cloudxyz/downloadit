@@ -25,7 +25,11 @@ importers:
 
   apps/desktop: {}
 
-  apps/extension: {}
+  apps/extension:
+    dependencies:
+      qr:
+        specifier: 0.7.2
+        version: 0.7.2
 
   packages/core: {}
 
@@ -211,6 +215,10 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  qr@0.7.2:
+    resolution: {integrity: sha512-yovYRuacJBJkG9fWSwcB2bKZhr58c04DpOXguDU+rAAoJZdi6/J3DtlomkKqdd1MutIptIK+kigWmT7LKz8y7A==}
+    engines: {node: '>= 20.19.0'}
+
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
@@ -344,6 +352,8 @@ snapshots:
       '@esbuild/win32-arm64': 0.25.12
       '@esbuild/win32-ia32': 0.25.12
       '@esbuild/win32-x64': 0.25.12
+
+  qr@0.7.2: {}
 
   typescript@5.9.3: {}
 
