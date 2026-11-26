@@ -145,10 +145,9 @@ internal class PeerServer(private val context: Context) {
             "list","clear" -> {require(req.keysAre("op","v","target"));if(req.str("op")=="clear")Jobs.clear()}
             "submit" -> {
                 require(req.keysAre("op","v","target","id","format","quality"))
-                if(req.str("format")!="mp4")throw Problem("unsupported")
                 val height=req.get("quality") as? Int ?: throw Problem("invalid")
                 val folder=context.getSharedPreferences("options",0).getString("folder","DownloadIT") ?: "DownloadIT"
-                Jobs.add(req.str("id"),height,folder);startQueue(context)
+                Jobs.add(req.str("id"),height,folder,req.str("format"));startQueue(context)
             }
             "cancel","retry" -> {
                 require(req.keysAre("op","v","target","job"));val id=req.str("job")

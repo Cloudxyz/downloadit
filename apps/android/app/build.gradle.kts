@@ -14,6 +14,7 @@ android {
         versionName = "0.1.0"
     }
     buildFeatures { compose = true }
+    sourceSets["main"].assets.srcDir("../../../dist/codec")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -25,4 +26,5 @@ dependencies {
     implementation("androidx.compose.material3:material3:1.3.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.zxing:core:3.5.4")
+    implementation("androidx.javascriptengine:javascriptengine:1.1.1")
 }

@@ -11,3 +11,5 @@ Android implements Share Sheet confirmation, selectable quality and Movies subfo
 QR pairing, one-use offers, fresh TLS connection challenges, Keystore identity, DPAPI credentials, revocation and Android job forwarding are implemented. Both platform builds and launcher compilation passed. Physical QR, LAN authentication and forwarded submission remain unverified.
 
 Windows MP3 conversion now accepts bounded direct Opus/WebM input and encodes 128, 192 or 320 kbps with FFmpeg/libmp3lame WebAssembly. The muxer writes title and artist metadata. The codec loader, bytes and memory limit are checked during build. Encoding real media remains unverified.
+
+Android MP3 now selects direct Opus audio and publishes tagged MP3s through pending Music entries. The debug APK contains the same bounded FFmpeg image and requires a compatible Android System WebView JavaScriptSandbox. Physical encoding and Pulsar indexing remain unverified.

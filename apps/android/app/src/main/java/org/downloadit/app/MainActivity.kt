@@ -46,6 +46,7 @@ class MainActivity: ComponentActivity() {
                     var folder by remember { mutableStateOf(prefs.getString("folder","DownloadIT") ?: "DownloadIT") }
                     var wifi by remember { mutableStateOf(prefs.getBoolean("wifi",true)) }
                     var height by remember { mutableIntStateOf(prefs.getInt("height",720)) }
+                    var bitrate by remember { mutableIntStateOf(prefs.getInt("bitrate",192)) }
                     var problem by remember { mutableStateOf("") }
                     var jobs by remember { mutableStateOf(Jobs.snapshot()) }
                     LaunchedEffect(Unit) { while (true) { jobs = Jobs.snapshot(); delay(700) } }
@@ -66,11 +67,16 @@ class MainActivity: ComponentActivity() {
                         Text("Download IT",style=MaterialTheme.typography.headlineLarge)
                         OutlinedTextField(link,{ link = it.take(2048) },Modifier.fillMaxWidth(),singleLine=true,label={ Text(tr("YouTube link","Enlace de YouTube")) })
                         Text(tr("Download only media you are authorized to save.","Descarga solo contenido que tengas autorización para guardar."))
+                        Text(tr("Video resolution","Resolución de video"))
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             for (n in listOf(480,720,1080)) FilterChip(height == n,{ height=n; prefs.edit().putInt("height",n).apply() },{ Text(n.toString()+"p") })
                         }
+                        Text(tr("Audio bitrate","Tasa de bits de audio"))
+                        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                            for(n in listOf(128,192,320)) FilterChip(bitrate==n,{bitrate=n;prefs.edit().putInt("bitrate",n).apply()},{Text(n.toString()+" kbps")})
+                        }
                         OutlinedTextField(folder,{ folder=it.take(32); if(Jobs.folderValid(folder)) prefs.edit().putString("folder",folder).apply() },
-                            Modifier.fillMaxWidth(),singleLine=true,label={ Text(tr("Folder in Movies","Carpeta en Movies")) })
+                            Modifier.fillMaxWidth(),singleLine=true,label={ Text(tr("Folder in Movies and Music","Carpeta en Movies y Music")) })
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Text(tr("Wi-Fi only","Solo Wi-Fi"),Modifier.weight(1f))
                             Switch(wifi,{wifi=it; prefs.edit().putBoolean("wifi",it).apply()})
@@ -80,7 +86,9 @@ class MainActivity: ComponentActivity() {
                                 Jobs.add(sharedId(link) ?: throw Problem("invalid"),height,folder)
                                 start()
                             } },enabled=sharedId(link)!=null && Jobs.folderValid(folder)) { Text(tr("Download MP4","Descargar MP4")) }
-                            OutlinedButton(onClick={ problem=message("unsupported") }) { Text(tr("Download MP3","Descargar MP3")) }
+                            OutlinedButton(onClick={act {
+                                Jobs.add(sharedId(link) ?: throw Problem("invalid"),bitrate,folder,"mp3");start()
+                            }},enabled=sharedId(link)!=null && Jobs.folderValid(folder)) { Text(tr("Download MP3","Descargar MP3")) }
                         }
                         if(problem.isNotEmpty()) Text(problem,color=MaterialTheme.colorScheme.error)
                         Text(tr("Download history","Historial de descargas"),style=MaterialTheme.typography.titleLarge)
@@ -93,7 +101,7 @@ class MainActivity: ComponentActivity() {
                                 "queued" -> tr("Queued","En cola")
                                 else -> tr("Cancelled","Cancelado")
                             }
-                            Text(r.id+" · MP4 "+r.height+"p · "+state)
+                            Text(r.id+" · "+r.format.uppercase()+" "+r.height+(if(r.format=="mp3")" kbps" else "p")+" · "+state)
                             if(r.state == "running") LinearProgressIndicator(progress={r.progress/100f},modifier=Modifier.fillMaxWidth())
                             when(r.state) {
                                 "queued","running" -> TextButton({act { Jobs.cancel(r.key) }}) {Text(tr("Cancel","Cancelar"))}

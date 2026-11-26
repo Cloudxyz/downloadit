@@ -74,34 +74,44 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
         val info = data.getJSONObject("videoDetails")
         if (data.getJSONObject("playabilityStatus").optString("status") != "OK" || info.optString("videoId") != task.id ||
             info.optBoolean("isPrivate",true) || info.optBoolean("isLiveContent",false)) throw Problem("unsupported")
-        if (info.optLong("lengthSeconds",-1) !in 1L..3600L) throw Problem("limit")
-        val formats = data.getJSONObject("streamingData").getJSONArray("formats")
+        val audio = task.format == "mp3"
+        if (info.optLong("lengthSeconds",-1) !in 1L..(if(audio) 900L else 3600L)) throw Problem("limit")
+        val formats = data.getJSONObject("streamingData").getJSONArray(if(audio)"adaptiveFormats" else "formats")
         val codec = Regex("""video/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"(?=$)""")
         val best = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
-            it.optInt("height") in 1..task.height && it.has("url") && !it.has("signatureCipher") &&
-            !it.has("cipher") && !it.has("drmFamilies") && !it.has("licenseInfos") && codec.matches(it.optString("mimeType"))
-        }.maxByOrNull { it.optInt("height") } ?: throw Problem("unsupported")
+            it.has("url") && !it.has("signatureCipher") && !it.has("cipher") && !it.has("drmFamilies") && !it.has("licenseInfos") &&
+            (if(audio) it.optString("mimeType")=="audio/webm; codecs=\"opus\"" else
+                it.optInt("height") in 1..task.height && codec.matches(it.optString("mimeType")))
+        }.maxByOrNull { it.optInt(if(audio)"bitrate" else "height") } ?: throw Problem("unsupported")
         fetch(best.getString("url"),false).use { response ->
             val body = response.body ?: throw Problem("network")
             val size = body.contentLength()
-            if (size !in 12L..268435456L || body.contentType()?.let { it.type+"/"+it.subtype } != "video/mp4") throw Problem("unsupported")
-            if (StatFs(Environment.getExternalStorageDirectory().path).availableBytes < size+33554432) throw Problem("storage")
+            if (size !in 12L..(if(audio)16777216L else 268435456L) || body.contentType()?.let { it.type+"/"+it.subtype } !=
+                (if(audio)"audio/webm" else "video/mp4")) throw Problem("unsupported")
+            if (StatFs(Environment.getExternalStorageDirectory().path).availableBytes < size+67108864) throw Problem("storage")
             val title = info.optString("title").replace(Regex("[^\\p{L}\\p{N} _-]"),"").trim().take(80).ifEmpty { task.id }
             val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME,title+"-"+task.key.take(8)+".mp4")
-                put(MediaStore.MediaColumns.MIME_TYPE,"video/mp4")
-                put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_MOVIES+"/"+task.folder+"/")
+                put(MediaStore.MediaColumns.DISPLAY_NAME,title+"-"+task.key.take(8)+"."+task.format)
+                put(MediaStore.MediaColumns.MIME_TYPE,if(audio)"audio/mpeg" else "video/mp4")
+                put(MediaStore.MediaColumns.RELATIVE_PATH,(if(audio) Environment.DIRECTORY_MUSIC else Environment.DIRECTORY_MOVIES)+"/"+task.folder+"/")
                 put(MediaStore.MediaColumns.IS_PENDING,1)
             }
             val resolver = context.contentResolver
-            val uri = resolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),values) ?: throw Problem("storage")
+            val collection = if(audio) MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                else MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val uri = resolver.insert(collection,values) ?: throw Problem("storage")
             var published = false
             try {
                 Jobs.pending(task.key,uri)
                 val input = java.io.DataInputStream(body.byteStream())
-                val header = ByteArray(12); input.readFully(header)
-                if (String(header,4,4,Charsets.US_ASCII) != "ftyp") throw Problem("unsupported")
                 resolver.openOutputStream(uri,"w")?.use { output ->
+                    if(audio){
+                        encodeAudio(context,input,size.toInt(),output,task.height,info.optString("title",task.id),
+                            info.optString("author"),::checkJob) { Jobs.progress(task.key,it) }
+                        return@use
+                    }
+                    val header = ByteArray(12); input.readFully(header)
+                    if (String(header,4,4,Charsets.US_ASCII) != "ftyp") throw Problem("unsupported")
                     output.write(header); var received = 12L; val buf = ByteArray(65536)
                     while (true) {
                         checkJob(); val n = input.read(buf); if (n < 0) break
