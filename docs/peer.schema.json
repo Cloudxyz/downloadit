@@ -1,0 +1,379 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Peer management, TLS envelopes and replies",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/management"
+    },
+    {
+      "$ref": "#/$defs/devices"
+    },
+    {
+      "$ref": "#/$defs/result"
+    },
+    {
+      "$ref": "#/$defs/nonce"
+    },
+    {
+      "$ref": "#/$defs/pair"
+    },
+    {
+      "$ref": "#/$defs/credential"
+    },
+    {
+      "$ref": "#/$defs/jobEnvelope"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]{43}$"
+    },
+    "offer": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "ip": {
+          "type": "string",
+          "format": "ipv4",
+          "description": "RFC 1918 address in canonical dotted-decimal notation"
+        },
+        "cert": {
+          "type": "string",
+          "minLength": 256,
+          "maxLength": 2048,
+          "contentEncoding": "base64"
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "v",
+        "ip",
+        "cert",
+        "challenge"
+      ],
+      "additionalProperties": false
+    },
+    "management": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "op": {
+              "const": "peers"
+            }
+          },
+          "required": [
+            "v",
+            "op"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "op": {
+              "const": "forget"
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "v",
+            "op",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "const": 1
+            },
+            "op": {
+              "const": "pair"
+            },
+            "offer": {
+              "$ref": "#/$defs/offer"
+            }
+          },
+          "required": [
+            "v",
+            "op",
+            "offer"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "devices": {
+      "type": "object",
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+          },
+          "maxItems": 8
+        }
+      },
+      "required": [
+        "ok",
+        "devices"
+      ],
+      "additionalProperties": false
+    },
+    "fault": {
+      "enum": [
+        "unavailable",
+        "unsupported",
+        "network",
+        "storage",
+        "interrupted",
+        "duplicate",
+        "limit",
+        "busy",
+        "invalid"
+      ]
+    },
+    "job": {
+      "type": "object",
+      "properties": {
+        "job": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{11}$"
+        },
+        "format": {
+          "enum": [
+            "mp3",
+            "mp4"
+          ]
+        },
+        "quality": {
+          "type": "integer"
+        },
+        "state": {
+          "enum": [
+            "queued",
+            "running",
+            "done",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "progress": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fault"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "job",
+        "id",
+        "format",
+        "quality",
+        "state",
+        "progress",
+        "error"
+      ],
+      "additionalProperties": false,
+      "if": {
+        "properties": {
+          "format": {
+            "const": "mp3"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "quality": {
+            "enum": [
+              128,
+              192,
+              320
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "quality": {
+            "enum": [
+              480,
+              720,
+              1080
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "const": false
+            },
+            "error": {
+              "$ref": "#/$defs/fault"
+            }
+          },
+          "required": [
+            "ok",
+            "error"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "jobs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/job"
+              }
+            }
+          },
+          "required": [
+            "ok",
+            "jobs"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "nonce": {
+      "type": "object",
+      "properties": {
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "nonce"
+      ],
+      "additionalProperties": false
+    },
+    "pair": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "op": {
+          "const": "pair"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        },
+        "challenge": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "v",
+        "op",
+        "nonce",
+        "challenge"
+      ],
+      "additionalProperties": false
+    },
+    "credential": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        }
+      },
+      "required": [
+        "id",
+        "token"
+      ],
+      "additionalProperties": false
+    },
+    "jobEnvelope": {
+      "type": "object",
+      "properties": {
+        "v": {
+          "const": 1
+        },
+        "op": {
+          "const": "job"
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+        },
+        "token": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{43}$"
+        },
+        "request": {
+          "$ref": "protocol.schema.json"
+        }
+      },
+      "required": [
+        "v",
+        "op",
+        "nonce",
+        "id",
+        "token",
+        "request"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

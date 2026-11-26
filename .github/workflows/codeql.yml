@@ -1,0 +1,41 @@
+name: CodeQL
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  analyze:
+    permissions:
+      contents: read
+      security-events: write
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { language: javascript-typescript, mode: none, runner: ubuntu-24.04 }
+          - { language: python, mode: none, runner: ubuntu-24.04 }
+          - { language: csharp, mode: none, runner: windows-2022 }
+          - { language: java-kotlin, mode: manual, runner: windows-2022 }
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.mode }}
+      - name: Compile Kotlin
+        if: matrix.language == 'java-kotlin'
+        working-directory: apps/android
+        shell: pwsh
+        run: |
+          $env:JAVA_HOME = $env:JAVA_HOME_17_X64
+          $expected = '7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172'
+          if ((Get-FileHash gradle/wrapper/gradle-wrapper.jar).Hash -ne $expected) { throw 'Wrapper digest mismatch' }
+          .\gradlew.bat :app:compileDebugKotlin --max-workers=2 --console=plain
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4
+        with:
+          category: /language:${{ matrix.language }}

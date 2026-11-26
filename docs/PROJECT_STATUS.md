@@ -1,23 +1,24 @@
 # Project status
 
-The workspace, threat model, canonical ID parser and versioned IPC validators are implemented. Browser, Windows, Android and peer transport work is pending. No release or device compatibility has been verified.
+This is a source-build MVP. The repository contains a compiled-path implementation for desktop, Android and paired operation. Runtime compatibility is still awaiting acceptance.
 
-The extension implements top-frame SPA controls, English/Spanish confirmation, local profile preferences, host IPC, status, retry and history deletion. Android uses the system share action when supported. Browser interaction is unverified.
+| Area | Implemented | Verification boundary |
+|---|---|---|
+| Shared protocol | Canonical video IDs, strict versioned requests, reply validation and bounded history | TypeScript checks and static inspection |
+| Extension | Top-frame watch, Shorts and Music controls, SPA navigation, preferences, native IPC, local QR scanning, progress, history, cancel/retry, English and Spanish | MV3 bundle built. No browser automation or interactive browser check |
+| Windows | Native launcher, single-worker persistent queue, interrupted-job recovery, approved folders and exclusive publication | Node bundle and C# launcher compiled. Host registration and live transfers unverified |
+| Android | Share Sheet and paste, foreground service, Wi-Fi binding, MediaStore publication, subfolders, queue, retry, history deletion | Debug APK assembled with JDK 17, Platform 36 and Gradle 8.14.3. No physical device run |
+| Media | Direct public AVC/AAC MP4 and Opus/WebM to MP3 via offline FFmpeg/libmp3lame, original title/artist, optional JPEG cover | Package signatures and codec hashes checked. Asset inventory inspected. Encoded audio, player visibility and quality unverified |
+| Pairing | Expiring one-use QR, pinned TLS 1.3, per-connection nonce, Keystore identity, DPAPI credentials, Android revocation and desktop forwarding | Builds and static flow review. Camera, handshake, background transitions and revocation need two devices |
+| Optional yt-dlp | Verified 2026.11.23 Python zipimport asset, offline WSL worker, intersection with directly offered public streams | OpenPGP signature, release digest and Python syntax checked. This build machine lacks bubblewrap |
+| Repository | MIT license, dependency locks, threat model, SHA-pinned security workflows and manual release procedure | Owner settings, hosted scans and release signing are separate from local build validation |
 
-The Windows host implements a single-worker persistent queue, bounded retries, cancellation, byte progress, public IPv4 egress checks and no-replace MP4 publication under Downloads/DownloadIT. MP3 conversion and yt-dlp are gated. Only muxed AVC/AAC MP4 URLs offered directly on a public watch page qualify. Requests that need login, redirects, decryption or challenges fail. Runtime transport and live media remain unverified.
+## Limits that affect downloads
 
-Android implements Share Sheet confirmation, selectable quality and Movies subfolder, Wi-Fi binding, foreground notifications, persisted jobs, cancellation, bounded retry, history deletion and pending MediaStore publication. The debug APK builds with the pinned Gradle wrapper. Share delivery, foreground lifecycle, actual downloads and player visibility still require physical-device verification.
+- The public watch document must expose a compatible direct URL. Common challenges, private videos, live content, redirects and separately encoded video tracks can make a requested download unavailable. MP4 quality is a ceiling and the source is never enlarged.
+- MP4 is capped at 256 MiB and one hour. MP3 conversion is capped at 16 MiB of Opus input and 15 minutes of audio. Each queue holds up to 64 jobs. Each job allows three attempts, including the first.
+- Wi-Fi-only defaults to enabled on Android. Pairing requires private IPv4 Wi-Fi and a visible receiver. The default Android retrieval path does not depend on WSL or the native youtubedl-android binaries.
+- Source builds, developer installation and unpacked extension loading are available. Signed installers, APK releases, store publication and device compatibility certification are pending.
+- CodeGraph indexes local source and shared symbols. Native Messaging, Android intents and service lifecycle, TLS messages, generated WebAssembly bindings and OS keystore calls cross runtime boundaries that a static index cannot verify.
 
-QR pairing, one-use offers, fresh TLS connection challenges, Keystore identity, DPAPI credentials, revocation and Android job forwarding are implemented. Both platform builds and launcher compilation passed. Physical QR, LAN authentication and forwarded submission remain unverified.
-
-Windows MP3 conversion now accepts bounded direct Opus/WebM input and encodes 128, 192 or 320 kbps with FFmpeg/libmp3lame WebAssembly. The muxer writes title and artist metadata. The codec loader, bytes and memory limit are checked during build. Encoding real media remains unverified.
-
-Android MP3 now selects direct Opus audio and publishes tagged MP3s through pending Music entries. The debug APK contains the same bounded FFmpeg image and requires a compatible Android System WebView JavaScriptSandbox. Physical encoding and Pulsar indexing remain unverified.
-
-The optional Windows yt-dlp worker is tied to release 2026.11.23. Preparation verified the upstream OpenPGP signature and SHA-256 digest. Lint, build and Python syntax checks passed. The installed Ubuntu WSL environment lacks bubblewrap, so optional extraction is unavailable here. The default broker remains available.
-
-Cover artwork is opt-in on each platform. Jobs persist the setting and add a bounded JPEG as an ID3 front-cover frame. Lint, desktop/extension builds and the Android debug build passed; player display has not been exercised.
-
-The extension can choose Downloads or format-specific Music/Videos folders on Windows. The queue journals a sanitized title and generated filename before publication and reads earlier queue formats. Lint and build passed; filesystem behavior on redirected Windows libraries is unverified.
-
-Security review added Android JSON nesting limits, a peer connection deadline, pending-entry recovery, explicit Native Messaging pipe flushes and ownership checks for Windows partial cleanup. Platform builds and launcher compilation passed.
+See [installation](INSTALLATION.md), [Android runtime review](ANDROID_RUNTIME.md) and [extractor setup](EXTRACTOR.md) for environment-specific requirements.

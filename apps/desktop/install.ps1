@@ -5,6 +5,10 @@ $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $destination = Join-Path $env:LOCALAPPDATA 'DownloadIT/host'
 $nodePath = Join-Path $env:ProgramFiles 'nodejs/node.exe'
 if (!(Test-Path -LiteralPath $nodePath)) { throw 'Install the official 64-bit Node distribution in Program Files first.' }
+$signature = Get-AuthenticodeSignature -LiteralPath $nodePath
+if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(^|, )O=OpenJS Foundation(,|$)') {
+  throw 'Node must have a valid OpenJS Foundation Authenticode signature.'
+}
 $null = New-Item -ItemType Directory -Force -Path $destination
 foreach ($folder in @((Split-Path $destination), $destination)) {
   if ((Get-Item -LiteralPath $folder).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Installation directory must be local.' }

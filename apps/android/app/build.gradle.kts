@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+dependencyLocking { lockAllConfigurations() }
 android {
     namespace = "org.downloadit.app"
     compileSdk = 36

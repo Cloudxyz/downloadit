@@ -7,3 +7,5 @@ The bounded native Kotlin path handles directly supplied public AVC/AAC MP4 stre
 Android 10 and later can create new media through MediaStore without broad file permissions. A pending entry remains private during transfer. The worker publishes it after the stream length and MP4 header have been checked. Each filename includes a job suffix. Player indexing is device-dependent. [MediaStore guidance](https://developer.android.com/training/data-storage/shared/media)
 
 The Gradle 8.14.3 wrapper JAR digest is `7d3a4ac4de1c32b59bc6a4eb8ecb8e612ccd0cf1ae1e99f66902da64df296172`. The wrapper properties pin the distribution checksum. [Gradle verification](https://gradle.org/release-checksums/)
+
+MP3 conversion uses the separately packaged, single-thread FFmpeg/libmp3lame WebAssembly variant. AndroidX JavaScriptSandbox runs it in an isolated process using the installed System WebView provider. No desktop executable, downloaded script or dynamically installed codec is required. An unsupported provider fails the MP3 job. See [JavaScriptSandbox](https://developer.android.com/develop/ui/views/layout/webapps/jsengine).
