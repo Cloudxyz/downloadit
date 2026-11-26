@@ -1,0 +1,5 @@
+{
+  "name": "@download-it/extension",
+  "private": true,
+  "type": "module"
+}

@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Download IT",
+  "version": "0.1.0",
+  "minimum_chrome_version": "116",
+  "description": "Save authorized YouTube media with your Download IT companion.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvT3PUv58RRkzL4PUYv/fzL1Y1qck/EGwAgZkrM+pesyQyN2UyDAtjd7lZu5Qq4JHVMMD/1pLFF5iE+7NMLqE4qpzaF/Ilv64I6PWDiHQxhchPuYvPHuKWBjOaRX3xm6/mOtRkhu1A0ijdtLJWQPOW5hxMCtaD6WzXNyetZHK7kP0PkTkUhrDCS/gFF5MSO7cLUkzJ4BSYnZFtarhFbQQkowRbYSMoo9XWJ+IpkLQ38NC1iGSYsBUdX/gymTgKkfFHWeHCEeFPL6B/cHRAp+122lMviPR+xEkcq2hxKZsS8UYWjCKFXqVgyxUf22kiBGRGyMlr2vU3pD1f7dngsfcJQIDAQAB",
+  "permissions": [
+    "storage",
+    "nativeMessaging"
+  ],
+  "action": {
+    "default_title": "Download IT"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://music.youtube.com/*",
+        "https://m.youtube.com/*"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src 'none'; frame-src 'none'"
+  }
+}
