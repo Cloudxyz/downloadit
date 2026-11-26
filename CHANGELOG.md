@@ -8,3 +8,5 @@
 - Added opt-in QR pairing over private Wi-Fi with certificate verification, replay challenges and revocation.
 - Added an optional signed yt-dlp extractor for isolated WSL use.
 - Added a threat model, build verification, supply-chain review and manual release procedures.
+- Fixed Windows reinstall mode selection, direct-format size selection, Android pending-media cleanup and receiver shutdown on Wi-Fi changes.
+- Added receiver-controlled extended limits for MP4 and MP3 with bounded input, output and processing time.

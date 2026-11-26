@@ -19,4 +19,6 @@ Use Download IT only for media you have permission to download. Availability dep
 2. On Android, share a YouTube link to Download IT and confirm the format. In desktop Brave, select a download control on the video page and confirm the destination.
 3. To send work to a phone, authorize your computer using [QR pairing](docs/PAIRING.md). The phone retrieves and saves the file itself.
 
+The [compatibility and security review](docs/COMPATIBILITY_REVIEW.md) covers Windows isolation, media limits and Android background behavior. Follow the [physical-device acceptance steps](docs/ACCEPTANCE.md) to check your installation and record playback, indexing and pairing results.
+
 [Architecture](docs/ARCHITECTURE.md) · [Permissions](docs/PERMISSIONS.md) · [Privacy](docs/PRIVACY.md) · [Threat model](docs/THREAT_MODEL.md) · [Security reporting](SECURITY.md) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Release procedure](docs/RELEASE.md)
