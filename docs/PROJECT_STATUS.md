@@ -22,5 +22,6 @@ This is a source-build MVP. The repository contains a compiled-path implementati
 - Mobile extension controls pass the chosen format to the system Share Sheet. The app accepts one supported link in shared text and asks the user to confirm. Browsers without Web Share show the manual sharing action.
 - Source builds, developer installation and unpacked extension loading are available. Signed installers, APK releases, store publication and device compatibility certification are pending.
 - CodeGraph indexes local source and shared symbols. Native Messaging, Android intents and service lifecycle, TLS messages, generated WebAssembly bindings and OS keystore calls cross runtime boundaries that a static index cannot verify.
+- The merged Android manifest exposes only the launcher/Share Sheet activity. The download service and AndroidX startup provider are private. The optional AndroidX profile-install broadcast receiver is excluded.
 
 See [installation](INSTALLATION.md), [Android runtime review](ANDROID_RUNTIME.md) and [extractor setup](EXTRACTOR.md) for environment-specific requirements.

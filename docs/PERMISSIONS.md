@@ -10,6 +10,7 @@
 | Android | ACCESS_NETWORK_STATE | Enforce Wi-Fi preference and select the Wi-Fi interface for pairing. |
 | Android | FOREGROUND_SERVICE and FOREGROUND_SERVICE_DATA_SYNC | Run a user-requested transfer with a foreground notification. |
 | Android | POST_NOTIFICATIONS on API 33+ | Show download-service notifications. Requested when starting local work. |
+| AndroidX | App-specific signature permission for non-exported dynamic receivers | Restrict internal broadcasts to the app's signing identity. This is declared by AndroidX, without a user prompt. |
 | Windows | Per-user registry and application data | Native host registration, local queue and DPAPI-encrypted device credentials. |
 
 Public retrieval uses DNS and HTTPS port 443 for the canonical YouTube watch page, a single-label googlevideo.com CDN host and, when enabled, i.ytimg.com cover artwork. The broker accepts public IPv4 addresses only and rejects redirects. IPv6-only networks and some captive portals are unsupported. The LAN receiver uses a separate pinned TLS channel on private Wi-Fi TCP 42189. Builds and optional extractor preparation contact their documented package sources. The app has no analytics, account server or external pairing relay.

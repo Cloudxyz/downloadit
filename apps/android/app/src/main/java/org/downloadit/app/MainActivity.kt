@@ -38,7 +38,8 @@ class MainActivity: ComponentActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         Jobs.init(this)
         val prefs = getSharedPreferences("options",0)
-        val shared = if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") intent.getStringExtra(Intent.EXTRA_TEXT) else null
+        val shared = if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain")
+            try { intent.getStringExtra(Intent.EXTRA_TEXT) ?: "" } catch (_: RuntimeException) { "" } else null
         val initialLink=shareLink(shared)
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
