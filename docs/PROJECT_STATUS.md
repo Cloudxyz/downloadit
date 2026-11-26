@@ -9,3 +9,5 @@ The Windows host implements a single-worker persistent queue, bounded retries, c
 Android implements Share Sheet confirmation, selectable quality and Movies subfolder, Wi-Fi binding, foreground notifications, persisted jobs, cancellation, bounded retry, history deletion and pending MediaStore publication. The debug APK builds with the pinned Gradle wrapper. Share delivery, foreground lifecycle, actual downloads and player visibility still require physical-device verification.
 
 QR pairing, one-use offers, fresh TLS connection challenges, Keystore identity, DPAPI credentials, revocation and Android job forwarding are implemented. Both platform builds and launcher compilation passed. Physical QR, LAN authentication and forwarded submission remain unverified.
+
+Windows MP3 conversion now accepts bounded direct Opus/WebM input and encodes 128, 192 or 320 kbps with FFmpeg/libmp3lame WebAssembly. The muxer writes title and artist metadata. The codec loader, bytes and memory limit are checked during build. Encoding real media remains unverified.

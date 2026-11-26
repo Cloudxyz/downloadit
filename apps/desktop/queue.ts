@@ -30,10 +30,11 @@ export class Queue {
         if(!record(e)||!exact(e,['item','attempts'])||!job(e.item)||typeof e.attempts!=='number'||!Number.isInteger(e.attempts)||e.attempts<1||e.attempts>3)throw new Failure('storage');
         const item=e.item;
         if(item.state==='running'){
-          const final=join(this.output,item.id+'-'+item.job+'.mp4');
+          const final=join(this.output,item.id+'-'+item.job+'.'+item.format);
           if(existsSync(final)&&lstatSync(final).isFile()&&statSync(final).size>0){item.state='done';item.progress=100;item.error=null;}
           else{item.state='failed';item.error='interrupted';}
           const part=join(this.output,item.job+'.part');if(existsSync(part))unlinkSync(part);
+          const encoded=join(this.output,item.job+'.encoded.part');if(existsSync(encoded))unlinkSync(encoded);
         }
         this.entries.push({item,attempts:e.attempts});
       }
@@ -62,7 +63,6 @@ export class Queue {
   handle(req:Request):Reply{
     if(req.target!=='desktop')return {ok:false,error:'unavailable'};
     if(req.op==='submit'){
-      if(req.format!=='mp4')return {ok:false,error:'unsupported'};
       if(this.entries.some(({item})=>item.id===req.id&&item.format===req.format&&item.quality===req.quality))return {ok:false,error:'duplicate'};
       if(this.entries.length>=64)return {ok:false,error:'limit'};
       this.entries.push({attempts:1,item:{id:req.id,job:randomUUID(),format:req.format,quality:req.quality,state:'queued',progress:0,error:null}});

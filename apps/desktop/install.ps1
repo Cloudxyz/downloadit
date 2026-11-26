@@ -9,6 +9,12 @@ foreach ($folder in @((Split-Path $destination), $destination)) {
   if ((Get-Item -LiteralPath $folder).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Installation directory must be local.' }
 }
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'dist/desktop/host.mjs') -Destination $destination -Force
+$codec = Join-Path $destination 'codec'
+$null = New-Item -ItemType Directory -Force -Path $codec
+if ((Get-Item -LiteralPath $codec).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe codec directory.' }
+foreach ($asset in @('encode.cjs','factory.cjs','convert.js','av.wasm','package.json')) {
+  Copy-Item -LiteralPath (Join-Path $sourceRoot "dist/desktop/codec/$asset") -Destination $codec -Force
+}
 $launcher = Join-Path $destination 'DownloadIT.exe'
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 & $compiler /nologo /target:exe /optimize+ /reference:System.Security.dll "/out:$launcher" (Join-Path $PSScriptRoot 'Launcher.cs')

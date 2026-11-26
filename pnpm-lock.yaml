@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@libav.js/variant-obsolete':
+        specifier: 6.11.9
+        version: 6.11.9
     devDependencies:
       '@types/chrome':
         specifier: 0.1.32
@@ -195,6 +199,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@libav.js/variant-obsolete@6.11.9':
+    resolution: {integrity: sha512-I2aqXT5B+WeeLEhmgpnvzUOOC8JUtc/z8XMF4Z7UQTC/R0B/KxCtO/qRBvAsEHFk4cWnZgG36fFpMklp4etikQ==}
+
   '@types/chrome@0.1.32':
     resolution: {integrity: sha512-n5Cqlh7zyAqRLQWLXkeV5K/1BgDZdVcO/dJSTa8x+7w+sx7m73UrDmduAptg4KorMtyTW2TNnPu8RGeaDMKNGg==}
 
@@ -306,6 +313,8 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.12':
     optional: true
+
+  '@libav.js/variant-obsolete@6.11.9': {}
 
   '@types/chrome@0.1.32':
     dependencies:

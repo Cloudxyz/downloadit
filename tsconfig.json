@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "paths": {"@libav.js/variant-obsolete":["./node_modules/@libav.js/variant-obsolete/dist/libav.types.d.ts"]},
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
