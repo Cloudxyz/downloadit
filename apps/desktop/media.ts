@@ -4,6 +4,7 @@ import { record } from '../../packages/security/fields.js';
 import { resource,Failure } from './network.js';
 import type { Job } from '../../packages/protocol/results.js';
 import { encode } from './encode.js';
+import { extractedUrls } from './extractor.js';
 
 const maxBytes=256*1024*1024;
 function player(html:string):unknown {
@@ -20,7 +21,7 @@ function player(html:string):unknown {
   }
   throw new Failure('unsupported');
 }
-function stream(data:unknown,item:Job){
+function stream(data:unknown,item:Job,approved?:Set<string>){
   if(!record(data)||!record(data.playabilityStatus)||data.playabilityStatus.status!=='OK'||
     !record(data.videoDetails)||data.videoDetails.videoId!==item.id||data.videoDetails.isPrivate!==false||
     data.videoDetails.isLiveContent===true||!record(data.streamingData)||!Array.isArray(data.streamingData.formats))throw new Failure('unsupported');
@@ -29,12 +30,12 @@ function stream(data:unknown,item:Job){
   if(item.format==='mp3'){
     const candidates=data.streamingData.adaptiveFormats;
     if(!Array.isArray(candidates))throw new Failure('unsupported');
-    const audio=candidates.filter(record).filter(f=>f.mimeType==='audio/webm; codecs="opus"'&&typeof f.url==='string'&&
+    const audio=candidates.filter(record).filter(f=>f.mimeType==='audio/webm; codecs="opus"'&&typeof f.url==='string'&&(!approved||approved.has(f.url))&&
       !f.drmFamilies&&!f.licenseInfos&&!f.signatureCipher&&!f.cipher).sort((a,b)=>Number(b.bitrate)-Number(a.bitrate))[0];
     if(!audio||typeof audio.url!=='string')throw new Failure('unsupported');
     return {url:audio.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
   }
-  const formats=data.streamingData.formats.filter(record).filter(f=>typeof f.url==='string'&&!f.drmFamilies&&!f.licenseInfos&&
+  const formats=data.streamingData.formats.filter(record).filter(f=>typeof f.url==='string'&&(!approved||approved.has(f.url))&&!f.drmFamilies&&!f.licenseInfos&&
     !f.signatureCipher&&!f.cipher&&typeof f.mimeType==='string'&&/^video\/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"$/.test(f.mimeType)&&
     typeof f.height==='number'&&f.height>0&&f.height<=item.quality);
   const best=formats.sort((a,b)=>Number(b.height)-Number(a.height))[0];
@@ -46,7 +47,8 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
   const page=await resource('https://www.youtube.com/watch?v='+item.id,'watch',signal);
   const chunks:Buffer[]=[];let size=0;
   for await(const chunk of page){size+=chunk.length;if(size>4*1024*1024)throw new Failure('limit');chunks.push(chunk);}
-  const selected=stream(player(Buffer.concat(chunks).toString('utf8')),item);
+  const html=Buffer.concat(chunks),data=player(html.toString('utf8'));
+  const selected=stream(data,item,await extractedUrls(item.id,html,signal));
   const media=await resource(selected.url,'media',signal);
   const part=join(dir,item.job+'.part');
   try{

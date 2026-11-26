@@ -13,3 +13,5 @@ QR pairing, one-use offers, fresh TLS connection challenges, Keystore identity, 
 Windows MP3 conversion now accepts bounded direct Opus/WebM input and encodes 128, 192 or 320 kbps with FFmpeg/libmp3lame WebAssembly. The muxer writes title and artist metadata. The codec loader, bytes and memory limit are checked during build. Encoding real media remains unverified.
 
 Android MP3 now selects direct Opus audio and publishes tagged MP3s through pending Music entries. The debug APK contains the same bounded FFmpeg image and requires a compatible Android System WebView JavaScriptSandbox. Physical encoding and Pulsar indexing remain unverified.
+
+The optional Windows yt-dlp worker is tied to release 2026.11.23. Preparation verified the upstream OpenPGP signature and SHA-256 digest. Lint, build and Python syntax checks passed. The installed Ubuntu WSL environment lacks bubblewrap, so optional extraction is unavailable here. The default broker remains available.

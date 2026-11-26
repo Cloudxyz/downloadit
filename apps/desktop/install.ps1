@@ -1,4 +1,5 @@
 # Run from a reviewed checkout after pnpm build. Installs for the current user.
+param([switch]$WithExtractor)
 $ErrorActionPreference = 'Stop'
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $destination = Join-Path $env:LOCALAPPDATA 'DownloadIT/host'
@@ -14,6 +15,15 @@ $null = New-Item -ItemType Directory -Force -Path $codec
 if ((Get-Item -LiteralPath $codec).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe codec directory.' }
 foreach ($asset in @('encode.cjs','factory.cjs','convert.js','av.wasm','package.json')) {
   Copy-Item -LiteralPath (Join-Path $sourceRoot "dist/desktop/codec/$asset") -Destination $codec -Force
+}
+if ($WithExtractor) {
+  $extractor = Join-Path $destination 'extractor'
+  $archive = Join-Path $sourceRoot 'dist/desktop/extractor/yt-dlp.zip'
+  if ((Get-FileHash $archive).Hash -ne 'e8665ed64d6b9172773e812f891fb707a0cb1ee8d9ef4fc1acb00cabee4c5256') { throw 'Prepare the signed extractor first.' }
+  $null = New-Item -ItemType Directory -Force -Path $extractor
+  if ((Get-Item -LiteralPath $extractor).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe extractor directory.' }
+  Copy-Item -LiteralPath $archive -Destination $extractor -Force
+  Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'extractor/select.py') -Destination $extractor -Force
 }
 $launcher = Join-Path $destination 'DownloadIT.exe'
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
