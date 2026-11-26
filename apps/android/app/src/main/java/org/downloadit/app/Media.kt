@@ -30,6 +30,12 @@ private fun publicV4(ip: InetAddress): Boolean {
 }
 private fun cdn(host: String) = Regex("[a-z0-9-]+\\.googlevideo\\.com").matches(host)
 
+// A missing declaration can be supplied by the other source. A malformed one cannot.
+private fun declaredSize(value: String?): Long? {
+    if(value==null)return null
+    return value.takeIf { it.length in 1..15 && it.all { c -> c in '0'..'9' } }?.toLongOrNull()?.takeIf { it>=12 } ?: -1L
+}
+
 internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
     val cm = context.getSystemService(ConnectivityManager::class.java)
     val wifi = context.getSharedPreferences("options",0).getBoolean("wifi",true)
@@ -83,11 +89,17 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
         if (info.optLong("lengthSeconds",-1) !in 1L..maxSeconds) throw Problem("limit")
         val formats = data.getJSONObject("streamingData").getJSONArray(if(audio)"adaptiveFormats" else "formats")
         val codec = Regex("""video/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"(?=$)""")
-        val best = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
+        val candidates = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
             it.has("url") && !it.has("signatureCipher") && !it.has("cipher") && !it.has("drmFamilies") && !it.has("licenseInfos") &&
             (if(audio) it.optString("mimeType")=="audio/webm; codecs=\"opus\"" else
                 it.optInt("height") in 1..task.height && codec.matches(it.optString("mimeType")))
-        }.maxByOrNull { it.optInt(if(audio)"bitrate" else "height") } ?: throw Problem("unsupported")
+        }
+        if(candidates.isEmpty())throw Problem("unsupported")
+        val best=candidates.filter { format ->
+            val size=declaredSize(format.opt("contentLength")?.toString())
+            size==null || size in 12..maxBytes
+        }.maxByOrNull { it.optInt(if(audio)"bitrate" else "height") } ?: throw Problem("limit")
+        val formatSize=declaredSize(best.opt("contentLength")?.toString())
         val artwork = if(audio && task.artwork) fetch("https://i.ytimg.com/vi/"+task.id+"/hqdefault.jpg",false,true).use { cover ->
             val body=cover.body ?: throw Problem("network")
             if(body.contentLength() !in 4L..262144L || body.contentType()?.let { it.type+"/"+it.subtype }!="image/jpeg")throw Problem("unsupported")
@@ -97,7 +109,9 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
         } else null
         fetch(best.getString("url"),false).use { response ->
             val body = response.body ?: throw Problem("network")
-            val size = body.contentLength()
+            val headerSize=declaredSize(response.header("Content-Length"))
+            if(headerSize!=null && formatSize!=null && headerSize!=formatSize)throw Problem("unsupported")
+            val size=headerSize ?: formatSize ?: throw Problem("unsupported")
             if(size>maxBytes)throw Problem("limit")
             if (size<12L || body.contentType()?.let { it.type+"/"+it.subtype } !=
                 (if(audio)"audio/webm" else "video/mp4")) throw Problem("unsupported")

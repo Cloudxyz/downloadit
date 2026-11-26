@@ -23,7 +23,21 @@ function player(html:string):unknown {
   }
   throw new Failure('unsupported');
 }
-function stream(data:unknown,item:Job,maxSeconds:number,approved?:Set<string>){
+function declaredSize(value:unknown):number|undefined {
+  if(value===undefined)return undefined;
+  if(!(typeof value==='string'&&/^\d{1,15}$/.test(value)) && typeof value!=='number')return NaN;
+  const bytes=Number(value);
+  return Number.isSafeInteger(bytes)&&bytes>=12?bytes:NaN;
+}
+function firstFitting(formats:Record<string,unknown>[],limit:number){
+  if(!formats.length)throw new Failure('unsupported');
+  for(const format of formats){
+    const size=declaredSize(format.contentLength);
+    if((size===undefined||size<=limit)&&typeof format.url==='string')return {url:format.url,size};
+  }
+  throw new Failure('limit');
+}
+function stream(data:unknown,item:Job,maxSeconds:number,maxBytes:number,approved?:Set<string>){
   if(!record(data)||!record(data.playabilityStatus)||data.playabilityStatus.status!=='OK'||
     !record(data.videoDetails)||data.videoDetails.videoId!==item.id||data.videoDetails.isPrivate!==false||
     data.videoDetails.isLiveContent===true||!record(data.streamingData))throw new Failure('unsupported');
@@ -33,17 +47,15 @@ function stream(data:unknown,item:Job,maxSeconds:number,approved?:Set<string>){
     const candidates=data.streamingData.adaptiveFormats;
     if(!Array.isArray(candidates))throw new Failure('unsupported');
     const audio=candidates.filter(record).filter(f=>f.mimeType==='audio/webm; codecs="opus"'&&typeof f.url==='string'&&(!approved||approved.has(f.url))&&
-      !f.drmFamilies&&!f.licenseInfos&&!f.signatureCipher&&!f.cipher).sort((a,b)=>Number(b.bitrate)-Number(a.bitrate))[0];
-    if(!audio||typeof audio.url!=='string')throw new Failure('unsupported');
-    return {url:audio.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
+      !f.drmFamilies&&!f.licenseInfos&&!f.signatureCipher&&!f.cipher).sort((a,b)=>Number(b.bitrate)-Number(a.bitrate));
+    return {...firstFitting(audio,maxBytes),title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
   }
   if(!Array.isArray(data.streamingData.formats))throw new Failure('unsupported');
   const formats=data.streamingData.formats.filter(record).filter(f=>typeof f.url==='string'&&(!approved||approved.has(f.url))&&!f.drmFamilies&&!f.licenseInfos&&
     !f.signatureCipher&&!f.cipher&&typeof f.mimeType==='string'&&/^video\/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"$/.test(f.mimeType)&&
     typeof f.height==='number'&&f.height>0&&f.height<=item.quality);
-  const best=formats.sort((a,b)=>Number(b.height)-Number(a.height))[0];
-  if(!best||typeof best.url!=='string')throw new Failure('unsupported');
-  return {url:best.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
+  formats.sort((a,b)=>Number(b.height)-Number(a.height));
+  return {...firstFitting(formats,maxBytes),title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
 }
 export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void,artwork:boolean,name:(title:string)=>string){
   const audio=item.format==='mp3';
@@ -54,13 +66,16 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
   const chunks:Buffer[]=[];let size=0;
   for await(const chunk of page){size+=chunk.length;if(size>4*1024*1024)throw new Failure('limit');chunks.push(chunk);}
   const html=Buffer.concat(chunks),data=player(html.toString('utf8'));
-  const selected=stream(data,item,maxSeconds,await extractedUrls(item.id,html,signal));
+  const selected=stream(data,item,maxSeconds,maxBytes,await extractedUrls(item.id,html,signal));
   const destination=join(dir,name(selected.title));
   const media=await resource(selected.url,'media',signal);
   const part=join(dir,item.job+'.part');
   let created=false;
   try{
-    const length=Number(media.headers['content-length']);
+    const headerSize=declaredSize(media.headers['content-length']);
+    if(headerSize!==undefined && selected.size!==undefined && headerSize!==selected.size)throw new Failure('unsupported');
+    const length=headerSize??selected.size;
+    if(length===undefined)throw new Failure('unsupported');
     if(length>maxBytes)throw new Failure('limit');
     if(!Number.isSafeInteger(length)||length<12||media.headers['content-type']?.split(';')[0]!== (audio?'audio/webm':'video/mp4'))throw new Failure('unsupported');
     const disk=await statfs(dir);
