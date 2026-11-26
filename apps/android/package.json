@@ -1,0 +1,7 @@
+{
+  "name": "@download-it/android",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

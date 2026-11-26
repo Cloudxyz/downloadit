@@ -1,0 +1,120 @@
+package org.downloadit.app
+
+import android.content.ContentValues
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Environment
+import android.os.StatFs
+import android.provider.MediaStore
+import okhttp3.Dns
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import org.json.JSONTokener
+import java.io.ByteArrayOutputStream
+import java.net.Inet4Address
+import java.net.InetAddress
+import java.net.Proxy
+import java.net.UnknownHostException
+import java.util.concurrent.TimeUnit
+
+private fun publicV4(ip: InetAddress): Boolean {
+    if (ip !is Inet4Address) return false
+    val (a,b,c) = ip.address.map { it.toInt() and 255 }
+    return !(a == 0 || a == 10 || a == 127 || a >= 224 || a == 100 && b in 64..127 ||
+        a == 169 && b == 254 || a == 172 && b in 16..31 || a == 192 && (b in listOf(0,168) ||
+        b == 88 && c == 99 || b == 31 && c == 196 || b == 52 && c == 193 || b == 175 && c == 48) ||
+        a == 198 && (b in 18..19 || b == 51 && c == 100) || a == 203 && b == 0 && c == 113)
+}
+private fun cdn(host: String) = Regex("[a-z0-9-]+\\.googlevideo\\.com").matches(host)
+
+internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
+    val cm = context.getSystemService(ConnectivityManager::class.java)
+    val wifi = context.getSharedPreferences("options",0).getBoolean("wifi",true)
+    val network = cm.activeNetwork ?: throw Problem("network")
+    if (wifi && cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) throw Problem("network")
+    val client = OkHttpClient.Builder().socketFactory(network.socketFactory).dns(object: Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            if (hostname != "www.youtube.com" && !cdn(hostname)) throw UnknownHostException()
+            val ips = network.getAllByName(hostname).filterIsInstance<Inet4Address>()
+            if (ips.isEmpty() || !ips.all(::publicV4)) throw UnknownHostException()
+            return ips
+        }
+    }).proxy(Proxy.NO_PROXY).followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
+        .readTimeout(20,TimeUnit.SECONDS).callTimeout(5,TimeUnit.MINUTES).build()
+    fun checkJob() { if (stopped()) throw Problem("interrupted"); Jobs.checkActive(task.key) }
+    fun fetch(raw: String, watch: Boolean): okhttp3.Response {
+        checkJob()
+        if (raw.length > 8192) throw Problem("unsupported")
+        val u = raw.toHttpUrl()
+        if (!u.isHttps || u.port != 443 || u.username.isNotEmpty() || u.password.isNotEmpty() || u.fragment != null ||
+            (if (watch) u.host != "www.youtube.com" || u.encodedPath != "/watch" else !cdn(u.host) || u.encodedPath != "/videoplayback")) throw Problem("unsupported")
+        val response = client.newCall(Request.Builder().url(u).header("Accept-Encoding","identity").build()).execute()
+        if (response.code != 200 || (response.header("Content-Encoding") ?: "identity") != "identity") {
+            response.close(); throw Problem("network")
+        }
+        return response
+    }
+    try {
+        val page = fetch("https://www.youtube.com/watch?v="+task.id,true).use { response ->
+            val input = response.body?.byteStream() ?: throw Problem("network")
+            val bytes = ByteArrayOutputStream()
+            val buf = ByteArray(16384)
+            while (true) {
+                checkJob(); val n = input.read(buf); if (n < 0) break
+                if (bytes.size()+n > 4*1024*1024) throw Problem("limit")
+                bytes.write(buf,0,n)
+            }
+            bytes.toString("UTF-8")
+        }
+        val marker = Regex("\\bvar ytInitialPlayerResponse\\s*=\\s*(?=\\{)").find(page) ?: throw Problem("unsupported")
+        val data = JSONTokener(page.substring(marker.range.last+1)).nextValue() as? JSONObject ?: throw Problem("unsupported")
+        val info = data.getJSONObject("videoDetails")
+        if (data.getJSONObject("playabilityStatus").optString("status") != "OK" || info.optString("videoId") != task.id ||
+            info.optBoolean("isPrivate",true) || info.optBoolean("isLiveContent",false)) throw Problem("unsupported")
+        if (info.optLong("lengthSeconds",-1) !in 1L..3600L) throw Problem("limit")
+        val formats = data.getJSONObject("streamingData").getJSONArray("formats")
+        val codec = Regex("""video/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"(?=$)""")
+        val best = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
+            it.optInt("height") in 1..task.height && it.has("url") && !it.has("signatureCipher") &&
+            !it.has("cipher") && !it.has("drmFamilies") && !it.has("licenseInfos") && codec.matches(it.optString("mimeType"))
+        }.maxByOrNull { it.optInt("height") } ?: throw Problem("unsupported")
+        fetch(best.getString("url"),false).use { response ->
+            val body = response.body ?: throw Problem("network")
+            val size = body.contentLength()
+            if (size !in 12L..268435456L || body.contentType()?.let { it.type+"/"+it.subtype } != "video/mp4") throw Problem("unsupported")
+            if (StatFs(Environment.getExternalStorageDirectory().path).availableBytes < size+33554432) throw Problem("storage")
+            val title = info.optString("title").replace(Regex("[^\\p{L}\\p{N} _-]"),"").trim().take(80).ifEmpty { task.id }
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME,title+"-"+task.key.take(8)+".mp4")
+                put(MediaStore.MediaColumns.MIME_TYPE,"video/mp4")
+                put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_MOVIES+"/"+task.folder+"/")
+                put(MediaStore.MediaColumns.IS_PENDING,1)
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),values) ?: throw Problem("storage")
+            var published = false
+            try {
+                Jobs.pending(task.key,uri)
+                val input = java.io.DataInputStream(body.byteStream())
+                val header = ByteArray(12); input.readFully(header)
+                if (String(header,4,4,Charsets.US_ASCII) != "ftyp") throw Problem("unsupported")
+                resolver.openOutputStream(uri,"w")?.use { output ->
+                    output.write(header); var received = 12L; val buf = ByteArray(65536)
+                    while (true) {
+                        checkJob(); val n = input.read(buf); if (n < 0) break
+                        received += n; if (received > size) throw Problem("limit")
+                        output.write(buf,0,n); Jobs.progress(task.key,(received*99/size).toInt())
+                    }
+                    if (received != size) throw Problem("network")
+                } ?: throw Problem("storage")
+                Jobs.publish(task.key) {
+                    check(resolver.update(uri,ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING,0) },null,null) == 1)
+                    published = true
+                }
+            } finally { if (!published) resolver.delete(uri,null,null) }
+        }
+    } finally { client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown() }
+}
