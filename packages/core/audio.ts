@@ -1,7 +1,8 @@
 import type LibAV from '@libav.js/variant-obsolete';
+import {audioSeconds} from './limits.js';
 export {attachArtwork} from './artwork.js';
 
-export type AudioInfo={quality:number;title:string;artist:string};
+export type AudioInfo={quality:number;title:string;artist:string;extended:boolean};
 export async function convert(av:LibAV.LibAV,bytes:Uint8Array,info:AudioInfo):Promise<Uint8Array>{
   if(bytes.length>16*1024*1024||![128,192,320].includes(info.quality))throw Error('limit');
   await av.av_log_set_level(-8);
@@ -13,6 +14,7 @@ export async function convert(av:LibAV.LibAV,bytes:Uint8Array,info:AudioInfo):Pr
   const channels=await av.AVCodecParameters_channels(track.codecpar);
   if(channels!==1&&channels!==2)throw Error('unsupported');
   const layout=channels===1?4:3,rate=48000;
+  const maxSamples=audioSeconds(info.quality,info.extended===true)*rate;
   const [,encoder,ef,ep,frameSize]=await av.ff_init_encoder('libmp3lame',{ctx:{sample_rate:rate,sample_fmt:6,
     channel_layout:layout,bit_rate:info.quality*1000},time_base:[1,rate]});
   const [output,,io]=await av.ff_init_muxer({filename:'output.mp3',format_name:'mp3',open:true},[[encoder,1,rate]]);
@@ -30,7 +32,7 @@ export async function convert(av:LibAV.LibAV,bytes:Uint8Array,info:AudioInfo):Pr
     const frames=await av.ff_decode_multi(decoder,dp,df,groups[track.index]??[],end);
     for(const f of frames){
       if(f.sample_rate!==rate||!f.nb_samples)throw Error('unsupported');
-      samples+=f.nb_samples;if(samples>900*rate)throw Error('limit');
+      samples+=f.nb_samples;if(samples>maxSamples)throw Error('limit');
     }
     const first=frames[0];
     if(!filter&&first)filter=await av.ff_init_filter_graph('anull',{sample_rate:rate,sample_fmt:first.format,

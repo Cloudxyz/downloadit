@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 internal fun encodeAudio(context: Context, input: InputStream, length: Int, output: OutputStream,
-    rate: Int, title: String, artist: String, artwork: ByteArray?, checkJob: () -> Unit, progress: (Int) -> Unit) {
+    rate: Int, title: String, artist: String, artwork: ByteArray?, extended: Boolean, checkJob: () -> Unit, progress: (Int) -> Unit) {
     if(length !in 12..16*1024*1024 || rate !in listOf(128,192,320) || !JavaScriptSandbox.isSupported()) throw Problem("unsupported")
     val bytes=ByteArray(length)
     var position=0
@@ -41,6 +41,7 @@ internal fun encodeAudio(context: Context, input: InputStream, length: Int, outp
         sandbox.createIsolate(options).use { isolate ->
             fun script(code: String) = await(isolate.evaluateJavaScriptAsync(code))
             val info=JSONObject().put("title",title.take(160)).put("artist",artist.take(160)).put("quality",rate).put("artwork",artwork!=null)
+                .put("extended",extended)
             if(artwork!=null)isolate.provideNamedData("cover",artwork)
             isolate.provideNamedData("info",info.toString().toByteArray())
             isolate.provideNamedData("media",bytes)

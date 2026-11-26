@@ -47,6 +47,7 @@ class MainActivity: ComponentActivity() {
                     var link by remember { mutableStateOf(initialLink) }
                     var folder by remember { mutableStateOf(prefs.getString("folder","DownloadIT") ?: "DownloadIT") }
                     var wifi by remember { mutableStateOf(prefs.getBoolean("wifi",true)) }
+                    var extended by remember { mutableStateOf(prefs.getBoolean("extendedLimits",false)) }
                     var height by remember { mutableIntStateOf(prefs.getInt("height",720)) }
                     var bitrate by remember { mutableIntStateOf(prefs.getInt("bitrate",192)) }
                     var artwork by remember { mutableStateOf(prefs.getBoolean("artwork",false)) }
@@ -91,6 +92,11 @@ class MainActivity: ComponentActivity() {
                         Row(verticalAlignment=Alignment.CenterVertically) {
                             Text(tr("Wi-Fi only","Solo Wi-Fi"),Modifier.weight(1f))
                             Switch(wifi,{wifi=it; prefs.edit().putBoolean("wifi",it).apply()})
+                        }
+                        Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text(tr("Extended limits (MP4 up to 512 MiB / 2 h; longer MP3 at lower bitrates)",
+                                "Límites ampliados (MP4 hasta 512 MiB / 2 h; MP3 más largo a menor tasa)"),Modifier.weight(1f))
+                            Switch(extended,{extended=it;prefs.edit().putBoolean("extendedLimits",it).apply()})
                         }
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             Button(onClick={ act {

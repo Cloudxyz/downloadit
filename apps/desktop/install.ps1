@@ -1,5 +1,5 @@
 # Run from a reviewed checkout after pnpm build. Installs for the current user.
-param([switch]$WithExtractor)
+param([switch]$WithExtractor,[switch]$ExtendedLimits)
 $ErrorActionPreference = 'Stop'
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $nodePath = Join-Path $env:ProgramFiles 'nodejs/node.exe'
@@ -20,6 +20,7 @@ foreach ($component in @('DownloadIT','host')) {
 $generation = [Guid]::NewGuid().ToString('N')
 $destination = Join-Path $hostRoot $generation
 $null = New-Item -ItemType Directory -Path $destination
+if ($ExtendedLimits) { $null = New-Item -ItemType File -Path (Join-Path $destination 'extended-limits') }
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'dist/desktop/host.mjs') -Destination $destination -Force
 $codec = Join-Path $destination 'codec'
 $null = New-Item -ItemType Directory -Force -Path $codec

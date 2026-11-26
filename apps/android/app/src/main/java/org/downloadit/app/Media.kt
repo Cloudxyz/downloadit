@@ -77,7 +77,10 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
         if (data.getJSONObject("playabilityStatus").optString("status") != "OK" || info.optString("videoId") != task.id ||
             info.optBoolean("isPrivate",true) || info.optBoolean("isLiveContent",false)) throw Problem("unsupported")
         val audio = task.format == "mp3"
-        if (info.optLong("lengthSeconds",-1) !in 1L..(if(audio) 900L else 3600L)) throw Problem("limit")
+        val extended=context.getSharedPreferences("options",0).getBoolean("extendedLimits",false)
+        val maxSeconds=if(audio) { if(extended) 900L*320/task.height else 900L } else if(extended) 7200L else 3600L
+        val maxBytes=(if(audio) 16L else if(extended) 512L else 256L)*1024*1024
+        if (info.optLong("lengthSeconds",-1) !in 1L..maxSeconds) throw Problem("limit")
         val formats = data.getJSONObject("streamingData").getJSONArray(if(audio)"adaptiveFormats" else "formats")
         val codec = Regex("""video/mp4; codecs="avc1[\w.]+,\s*mp4a[\w.]+"(?=$)""")
         val best = (0 until formats.length()).mapNotNull { formats.optJSONObject(it) }.filter {
@@ -95,7 +98,8 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
         fetch(best.getString("url"),false).use { response ->
             val body = response.body ?: throw Problem("network")
             val size = body.contentLength()
-            if (size !in 12L..(if(audio)16777216L else 268435456L) || body.contentType()?.let { it.type+"/"+it.subtype } !=
+            if(size>maxBytes)throw Problem("limit")
+            if (size<12L || body.contentType()?.let { it.type+"/"+it.subtype } !=
                 (if(audio)"audio/webm" else "video/mp4")) throw Problem("unsupported")
             if (StatFs(Environment.getExternalStorageDirectory().path).availableBytes < size+67108864) throw Problem("storage")
             val title = info.optString("title").replace(Regex("[^\\p{L}\\p{N} _-]"),"").trim().take(80).ifEmpty { task.id }
@@ -116,7 +120,7 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
                 resolver.openOutputStream(uri,"w")?.use { output ->
                     if(audio){
                         encodeAudio(context,input,size.toInt(),output,task.height,info.optString("title",task.id),
-                            info.optString("author"),artwork,::checkJob) { Jobs.progress(task.key,it) }
+                            info.optString("author"),artwork,extended,::checkJob) { Jobs.progress(task.key,it) }
                         return@use
                     }
                     val header = ByteArray(12); input.readFully(header)

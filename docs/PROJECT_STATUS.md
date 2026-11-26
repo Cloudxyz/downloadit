@@ -18,7 +18,7 @@ This is a source-build MVP. The repository contains a compiled-path implementati
 Windows installations now activate a complete per-install host directory. A standard reinstall selects the native broker even if an earlier installation included WSL assets. Live install and rollback remain manual acceptance items.
 
 - The public watch document must expose a compatible direct URL. Common challenges, private videos, live content, redirects and separately encoded video tracks can make a requested download unavailable. MP4 quality is a ceiling and the source is never enlarged.
-- MP4 is capped at 256 MiB and one hour. MP3 conversion is capped at 16 MiB of Opus input and 15 minutes of audio. Each queue holds up to 64 jobs. Each job allows three attempts, including the first.
+- Standard limits are 256 MiB / one hour for MP4 and 15 minutes for MP3. The receiving device can opt into 512 MiB / two hours for streamed MP4. Extended MP3 allows 37 min 30 s at 128 kbps, 25 min at 192 kbps and 15 min at 320 kbps. All profiles keep the 16 MiB Opus input, 37 MiB encoded output, sample counting and codec deadlines. Each queue holds up to 64 jobs and permits three attempts per job.
 - Audio-only watch responses are eligible for MP3 when they contain a directly offered Opus track. The MP4 stream list is required only for video jobs.
 - Wi-Fi-only defaults to enabled on Android. Pairing requires private IPv4 Wi-Fi and a visible receiver. The default Android retrieval path does not depend on WSL or the native youtubedl-android binaries.
 - Mobile extension controls pass the chosen format to the system Share Sheet. The app accepts one supported link in shared text and asks the user to confirm. Browsers without Web Share show the manual sharing action.

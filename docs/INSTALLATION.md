@@ -36,3 +36,7 @@ Brave's Android extensions feature has been tracked separately from desktop. Whe
 ## Uninstall
 
 Revoke computers on Android and forget them on Windows. Remove the unpacked extension in the browser. Close the browser before removing the per-user DownloadIT host directory and, if desired, queue and device data under LocalAppData/DownloadIT. Using Registry Editor, remove only the `org.downloadit.host` registration under each installed browser's `HKCU/Software/<vendor>/<browser>/NativeMessagingHosts` path, as recorded in `install.ps1`. Remove the Android app in Settings. Delete any completed media separately through your file manager or media app.
+
+### Download limits
+
+For extended limits, close Brave and run the desktop installer with the -ExtendedLimits switch, or turn on **Extended limits** in the Android app. Rerun the installer without that switch or turn off the Android setting to restore the defaults. Android applies its local choice to new attempts, including requests from paired computers. See the [profile ceilings](PROJECT_STATUS.md). Actual transfers must also meet the available disk space, direct-stream size, and elapsed-time limits.

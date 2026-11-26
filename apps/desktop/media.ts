@@ -6,8 +6,9 @@ import type { Job } from '../../packages/protocol/results.js';
 import { encode } from './encode.js';
 import { extractedUrls } from './extractor.js';
 import { attachArtwork } from '../../packages/core/artwork.js';
+import { existsSync } from 'node:fs';
+import { audioSeconds } from '../../packages/core/limits.js';
 
-const maxBytes=256*1024*1024;
 function player(html:string):unknown {
   const marker=/\bvar ytInitialPlayerResponse\s*=\s*(?=\{)/.exec(html);
   if(!marker)throw new Failure('unsupported');
@@ -22,12 +23,12 @@ function player(html:string):unknown {
   }
   throw new Failure('unsupported');
 }
-function stream(data:unknown,item:Job,approved?:Set<string>){
+function stream(data:unknown,item:Job,maxSeconds:number,approved?:Set<string>){
   if(!record(data)||!record(data.playabilityStatus)||data.playabilityStatus.status!=='OK'||
     !record(data.videoDetails)||data.videoDetails.videoId!==item.id||data.videoDetails.isPrivate!==false||
     data.videoDetails.isLiveContent===true||!record(data.streamingData))throw new Failure('unsupported');
   const duration=Number(data.videoDetails.lengthSeconds);
-  if(!Number.isSafeInteger(duration)||duration<1||duration>(item.format==='mp3'?900:3600))throw new Failure('limit');
+  if(!Number.isSafeInteger(duration)||duration<1||duration>maxSeconds)throw new Failure('limit');
   if(item.format==='mp3'){
     const candidates=data.streamingData.adaptiveFormats;
     if(!Array.isArray(candidates))throw new Failure('unsupported');
@@ -46,18 +47,22 @@ function stream(data:unknown,item:Job,approved?:Set<string>){
 }
 export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void,artwork:boolean,name:(title:string)=>string){
   const audio=item.format==='mp3';
+  const extended=existsSync(new URL('./extended-limits',import.meta.url));
+  const maxSeconds=audio?audioSeconds(item.quality,extended):(extended?7200:3600);
+  const maxBytes=(audio?16:(extended?512:256))*1024*1024;
   const page=await resource('https://www.youtube.com/watch?v='+item.id,'watch',signal);
   const chunks:Buffer[]=[];let size=0;
   for await(const chunk of page){size+=chunk.length;if(size>4*1024*1024)throw new Failure('limit');chunks.push(chunk);}
   const html=Buffer.concat(chunks),data=player(html.toString('utf8'));
-  const selected=stream(data,item,await extractedUrls(item.id,html,signal));
+  const selected=stream(data,item,maxSeconds,await extractedUrls(item.id,html,signal));
   const destination=join(dir,name(selected.title));
   const media=await resource(selected.url,'media',signal);
   const part=join(dir,item.job+'.part');
   let created=false;
   try{
     const length=Number(media.headers['content-length']);
-    if(!Number.isSafeInteger(length)||length<12||length>(audio?16*1024*1024:maxBytes)||media.headers['content-type']?.split(';')[0]!== (audio?'audio/webm':'video/mp4'))throw new Failure('unsupported');
+    if(length>maxBytes)throw new Failure('limit');
+    if(!Number.isSafeInteger(length)||length<12||media.headers['content-type']?.split(';')[0]!== (audio?'audio/webm':'video/mp4'))throw new Failure('unsupported');
     const disk=await statfs(dir);
     if(disk.bavail*disk.bsize<length+(audio?72:32)*1024*1024)throw new Failure('storage');
     const file=await open(part,'wx',0o600);
@@ -73,7 +78,7 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
       await file.sync();
     }finally{await file.close();}
     if(audio){
-      let result:Uint8Array=await encode(await readFile(part),{quality:item.quality,title:selected.title,artist:selected.artist},signal);
+      let result:Uint8Array=await encode(await readFile(part),{quality:item.quality,title:selected.title,artist:selected.artist,extended},signal);
       if(artwork){
         const cover=await resource('https://i.ytimg.com/vi/'+item.id+'/hqdefault.jpg','cover',signal);
         try{
