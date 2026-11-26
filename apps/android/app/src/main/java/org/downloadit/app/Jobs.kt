@@ -1,6 +1,7 @@
 package org.downloadit.app
 
 import android.content.Context
+import android.content.ContentUris
 import android.net.Uri
 import android.provider.MediaStore
 import org.json.JSONArray
@@ -59,14 +60,23 @@ internal object Jobs {
                 if(row.state=="running"){row.state = "failed"; row.error = "interrupted"}
                 if (row.uri.isNotEmpty()) {
                     val uri = Uri.parse(row.uri)
-                    require(uri.scheme == "content" && uri.authority == MediaStore.AUTHORITY)
-                    app.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.IS_PENDING), null,null,null)?.use {
-                        if (it.moveToFirst()) {
-                            if (it.getInt(0) == 1) app.contentResolver.delete(uri,null,null)
-                            else { row.state = "done"; row.progress = 100; row.error = "" }
+                    val collection=if(row.format=="mp3") MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                        else MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                    val id=uri.lastPathSegment?.toLongOrNull()
+                    try {
+                        if(id==null || id<=0 || uri!=ContentUris.withAppendedId(collection,id))throw Problem("storage")
+                        val resolver=app.contentResolver
+                        val cursor=resolver.query(uri,arrayOf(MediaStore.MediaColumns.IS_PENDING),null,null,null)
+                            ?: throw Problem("storage")
+                        val pending=cursor.use { if(it.moveToFirst()) it.getInt(0) else null }
+                        when(pending) {
+                            0 -> {row.state="done";row.progress=100;row.error=""}
+                            1 -> if(resolver.delete(uri,MediaStore.MediaColumns.IS_PENDING+" = 1",null)!=1)throw Problem("storage")
+                            null -> Unit // Already removed before the journal update.
+                            else -> throw Problem("storage")
                         }
-                    }
-                    row.uri = ""
+                        row.uri=""
+                    } catch(_:Exception) {row.error="storage"}
                 }
             }
             rows.add(row)
@@ -90,6 +100,7 @@ internal object Jobs {
     }
     @Synchronized fun retry(key: String) {
         val row = rows.singleOrNull { it.key == key } ?: throw Problem("invalid")
+        if(row.uri.isNotEmpty())throw Problem("busy")
         if (row.state !in listOf("failed","cancelled") || row.attempts >= 3) throw Problem("limit")
         row.attempts++; row.error = ""; row.progress = 0; row.state = "queued"; save()
     }
@@ -109,12 +120,16 @@ internal object Jobs {
         rows.single { it.key == key }.apply { state = "done"; progress = 100; uri = "" }; save()
     }
     @Synchronized fun fail(key: String, reason: String) {
-        rows.find { it.key == key && it.state == "running" }?.apply { state = "failed"; error = reason; uri = "" }; save()
+        rows.find { it.key == key && it.state == "running" }?.apply { state = "failed"; error = reason }; save()
+    }
+    @Synchronized fun discarded(key: String, uri: Uri) {
+        val row=rows.find { it.key==key && it.uri==uri.toString() } ?: return
+        row.uri="";save()
     }
     @Synchronized fun cancel(key: String) {
         rows.find { it.key == key && it.state in listOf("queued","running") }?.state = "cancelled"; save()
     }
-    @Synchronized fun clear() { rows.removeAll { it.state !in listOf("queued","running") }; save() }
+    @Synchronized fun clear() { rows.removeAll { it.uri.isEmpty() && it.state !in listOf("queued","running") }; save() }
     fun wire(): JSONArray = JSONArray().apply { for (r in snapshot()) put(JSONObject()
         .put("job",r.key).put("id",r.id).put("quality",r.height).put("format",r.format).put("state",r.state)
         .put("progress",r.progress).put("error",r.error.ifEmpty { null } ?: JSONObject.NULL)) }

@@ -151,7 +151,12 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
                     check(resolver.update(uri,ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING,0) },null,null) == 1)
                     published = true
                 }
-            } finally { if (!published) resolver.delete(uri,null,null) }
+            } finally {
+                if (!published) {
+                    if(resolver.delete(uri,MediaStore.MediaColumns.IS_PENDING+" = 1",null)!=1)throw Problem("storage")
+                    Jobs.discarded(task.key,uri)
+                }
+            }
         }
     } finally { client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown() }
 }

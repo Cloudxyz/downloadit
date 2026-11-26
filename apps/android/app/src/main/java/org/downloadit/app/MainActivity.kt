@@ -27,6 +27,8 @@ class MainActivity: ComponentActivity() {
     private fun message(code: String) = when (code) {
         "network" -> tr("Check the connection and Wi-Fi preference.","Comprueba la conexión y la preferencia de Wi-Fi.")
         "storage" -> tr("Check available storage.","Comprueba el almacenamiento.")
+        "busy" -> tr("Media cleanup is pending. If storage was unavailable, reopen the app after restoring it.",
+            "Hay una limpieza pendiente. Si faltaba almacenamiento, vuelve a abrir la aplicación después de restaurarlo.")
         "duplicate" -> tr("This profile is already in history.","Este perfil ya está en el historial.")
         "limit" -> tr("Queue, file or retry limit reached.","Se alcanzó el límite de cola, archivo o intentos.")
         "unsupported" -> tr("A compatible public stream or verified converter is unavailable.","Falta una transmisión pública compatible o un conversor verificado.")
