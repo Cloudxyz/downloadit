@@ -1,5 +1,7 @@
 # Optional Windows yt-dlp worker
 
+Close the browser before changing modes. Run the installer without switches for the native Windows broker, including when returning from `-WithExtractor`. Each install gets a new host directory. The registered manifest switches to it after compilation and copying succeed. Old generations may be removed with the browser closed after checking the active launcher path in the manifest. Queue data and credentials live outside these generations.
+
 The normal Windows and Android paths read directly offered public formats using their bounded HTTPS brokers. Windows additionally supports the signed yt-dlp 2026.11.23 zipimport distribution as an offline extractor. Android uses the native public-page reader. Both reject streams requiring authentication, player-code execution or a challenge.
 
 For the optional path, use a locally trusted WSL 2 Ubuntu distribution with a non-root default user, distribution-signed Python 3.10 or newer and bubblewrap supporting unprivileged user namespaces and `--disable-userns`. Availability depends on the Linux distribution and administrator policy. Keep its namespace protections enabled.

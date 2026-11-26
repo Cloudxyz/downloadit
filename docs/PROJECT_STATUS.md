@@ -15,6 +15,8 @@ This is a source-build MVP. The repository contains a compiled-path implementati
 
 ## Limits that affect downloads
 
+Windows installations now activate a complete per-install host directory. A standard reinstall selects the native broker even if an earlier installation included WSL assets. Live install and rollback remain manual acceptance items.
+
 - The public watch document must expose a compatible direct URL. Common challenges, private videos, live content, redirects and separately encoded video tracks can make a requested download unavailable. MP4 quality is a ceiling and the source is never enlarged.
 - MP4 is capped at 256 MiB and one hour. MP3 conversion is capped at 16 MiB of Opus input and 15 minutes of audio. Each queue holds up to 64 jobs. Each job allows three attempts, including the first.
 - Audio-only watch responses are eligible for MP3 when they contain a directly offered Opus track. The MP4 stream list is required only for video jobs.

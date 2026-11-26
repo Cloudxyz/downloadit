@@ -2,17 +2,24 @@
 param([switch]$WithExtractor)
 $ErrorActionPreference = 'Stop'
 $sourceRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$destination = Join-Path $env:LOCALAPPDATA 'DownloadIT/host'
 $nodePath = Join-Path $env:ProgramFiles 'nodejs/node.exe'
 if (!(Test-Path -LiteralPath $nodePath)) { throw 'Install the official 64-bit Node distribution in Program Files first.' }
 $signature = Get-AuthenticodeSignature -LiteralPath $nodePath
 if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(^|, )O=OpenJS Foundation(,|$)') {
   throw 'Node must have a valid OpenJS Foundation Authenticode signature.'
 }
-$null = New-Item -ItemType Directory -Force -Path $destination
-foreach ($folder in @((Split-Path $destination), $destination)) {
-  if ((Get-Item -LiteralPath $folder).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Installation directory must be local.' }
+# Publish through a stable manifest. An interrupted build leaves registrations
+# pointing at the previous complete generation, including its extractor policy.
+$hostRoot = $env:LOCALAPPDATA
+foreach ($component in @('DownloadIT','host')) {
+  $hostRoot = Join-Path $hostRoot $component
+  if (!(Test-Path -LiteralPath $hostRoot)) { $null = New-Item -ItemType Directory -Path $hostRoot }
+  $folder = Get-Item -LiteralPath $hostRoot -Force
+  if (!$folder.PSIsContainer -or ($folder.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unsafe installation directory.' }
 }
+$generation = [Guid]::NewGuid().ToString('N')
+$destination = Join-Path $hostRoot $generation
+$null = New-Item -ItemType Directory -Path $destination
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'dist/desktop/host.mjs') -Destination $destination -Force
 $codec = Join-Path $destination 'codec'
 $null = New-Item -ItemType Directory -Force -Path $codec
@@ -33,10 +40,16 @@ $launcher = Join-Path $destination 'DownloadIT.exe'
 $compiler = Join-Path ([Environment]::GetFolderPath('Windows')) 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 & $compiler /nologo /target:exe /optimize+ /reference:System.Security.dll "/out:$launcher" (Join-Path $PSScriptRoot 'Launcher.cs')
 if ($LASTEXITCODE) { throw 'Launcher compilation failed.' }
-$manifest = Join-Path $destination 'host.json'
+$manifest = Join-Path $hostRoot 'host.json'
 $identity = 'org.downloadit.host'
 $data = @{ name=$identity; description='Download IT'; path=$launcher; type='stdio'; allowed_origins=@('chrome-extension://gnjjgfaigfdmkfmjmjnokalgifpjfccd/') }
-[IO.File]::WriteAllText($manifest, ($data | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+$stagedManifest = Join-Path $destination 'host.json'
+[IO.File]::WriteAllText($stagedManifest, ($data | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+if (Test-Path -LiteralPath $manifest) {
+  $old = Get-Item -LiteralPath $manifest -Force
+  if ($old.PSIsContainer -or ($old.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Unsafe host manifest.' }
+  [IO.File]::Replace($stagedManifest,$manifest,[NullString]::Value)
+} else { [IO.File]::Move($stagedManifest,$manifest) }
 foreach ($vendor in @('Google/Chrome','BraveSoftware/Brave-Browser','Chromium')) {
   $key = "HKCU:/Software/$vendor/NativeMessagingHosts/$identity"
   $null = New-Item -Path $key -Force
