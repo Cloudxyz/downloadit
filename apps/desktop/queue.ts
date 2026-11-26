@@ -8,7 +8,7 @@ import type { Request } from '../../packages/protocol/messages.js';
 import { retrieve } from './media.js';
 import { Failure } from './network.js';
 
-type Entry={item:Job; attempts:number};
+type Entry={item:Job; attempts:number; artwork:boolean};
 function directory(parent:string,name:string):string{
   const path=join(parent,name);
   mkdirSync(path,{recursive:true,mode:0o700});
@@ -27,7 +27,7 @@ export class Queue {
       const data:unknown=JSON.parse(readFileSync(this.state,'utf8'));
       if(!Array.isArray(data)||data.length>64)throw new Failure('storage');
       for(const e of data){
-        if(!record(e)||!exact(e,['item','attempts'])||!job(e.item)||typeof e.attempts!=='number'||!Number.isInteger(e.attempts)||e.attempts<1||e.attempts>3)throw new Failure('storage');
+        if(!record(e)||!(exact(e,['item','attempts'])||exact(e,['item','attempts','artwork'])&&typeof e.artwork==='boolean')||!job(e.item)||typeof e.attempts!=='number'||!Number.isInteger(e.attempts)||e.attempts<1||e.attempts>3)throw new Failure('storage');
         const item=e.item;
         if(item.state==='running'){
           const final=join(this.output,item.id+'-'+item.job+'.'+item.format);
@@ -36,7 +36,7 @@ export class Queue {
           const part=join(this.output,item.job+'.part');if(existsSync(part))unlinkSync(part);
           const encoded=join(this.output,item.job+'.encoded.part');if(existsSync(encoded))unlinkSync(encoded);
         }
-        this.entries.push({item,attempts:e.attempts});
+        this.entries.push({item,attempts:e.attempts,artwork:e.artwork===true});
       }
       this.save();
     }
@@ -53,7 +53,7 @@ export class Queue {
     const item=entry.item,controller=new AbortController();this.active=controller;
     item.state='running';this.save();
     const signal=AbortSignal.any([controller.signal,AbortSignal.timeout(10*60*1000)]);
-    void retrieve(item,this.output,signal,p=>{item.progress=p;}).then(()=>{
+    void retrieve(item,this.output,signal,p=>{item.progress=p;},entry.artwork).then(()=>{
       item.state='done';item.progress=100;item.error=null;
     },(err:unknown)=>{
       item.state=controller.signal.aborted?'cancelled':'failed';
@@ -63,9 +63,9 @@ export class Queue {
   handle(req:Request):Reply{
     if(req.target!=='desktop')return {ok:false,error:'unavailable'};
     if(req.op==='submit'){
-      if(this.entries.some(({item})=>item.id===req.id&&item.format===req.format&&item.quality===req.quality))return {ok:false,error:'duplicate'};
+      if(this.entries.some(({item,artwork})=>item.id===req.id&&item.format===req.format&&item.quality===req.quality&&artwork===(req.artwork===true)))return {ok:false,error:'duplicate'};
       if(this.entries.length>=64)return {ok:false,error:'limit'};
-      this.entries.push({attempts:1,item:{id:req.id,job:randomUUID(),format:req.format,quality:req.quality,state:'queued',progress:0,error:null}});
+      this.entries.push({attempts:1,artwork:req.artwork===true,item:{id:req.id,job:randomUUID(),format:req.format,quality:req.quality,state:'queued',progress:0,error:null}});
     }else if(req.op==='clear'){
       this.entries=this.entries.filter(e=>e.item.state==='queued'||e.item.state==='running');
     }else if(req.op==='cancel'||req.op==='retry'){

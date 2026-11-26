@@ -37,7 +37,7 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
     if (wifi && cm.getNetworkCapabilities(network)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) throw Problem("network")
     val client = OkHttpClient.Builder().socketFactory(network.socketFactory).dns(object: Dns {
         override fun lookup(hostname: String): List<InetAddress> {
-            if (hostname != "www.youtube.com" && !cdn(hostname)) throw UnknownHostException()
+            if (hostname != "www.youtube.com" && hostname!="i.ytimg.com" && !cdn(hostname)) throw UnknownHostException()
             val ips = network.getAllByName(hostname).filterIsInstance<Inet4Address>()
             if (ips.isEmpty() || !ips.all(::publicV4)) throw UnknownHostException()
             return ips
@@ -45,12 +45,13 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
     }).proxy(Proxy.NO_PROXY).followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false)
         .readTimeout(20,TimeUnit.SECONDS).callTimeout(5,TimeUnit.MINUTES).build()
     fun checkJob() { if (stopped()) throw Problem("interrupted"); Jobs.checkActive(task.key) }
-    fun fetch(raw: String, watch: Boolean): okhttp3.Response {
+    fun fetch(raw: String, watch: Boolean, cover: Boolean=false): okhttp3.Response {
         checkJob()
         if (raw.length > 8192) throw Problem("unsupported")
         val u = raw.toHttpUrl()
         if (!u.isHttps || u.port != 443 || u.username.isNotEmpty() || u.password.isNotEmpty() || u.fragment != null ||
-            (if (watch) u.host != "www.youtube.com" || u.encodedPath != "/watch" else !cdn(u.host) || u.encodedPath != "/videoplayback")) throw Problem("unsupported")
+            (if (cover) u.host!="i.ytimg.com" || u.encodedPath!="/vi/"+task.id+"/hqdefault.jpg" || u.query!=null
+             else if (watch) u.host != "www.youtube.com" || u.encodedPath != "/watch" else !cdn(u.host) || u.encodedPath != "/videoplayback")) throw Problem("unsupported")
         val response = client.newCall(Request.Builder().url(u).header("Accept-Encoding","identity").build()).execute()
         if (response.code != 200 || (response.header("Content-Encoding") ?: "identity") != "identity") {
             response.close(); throw Problem("network")
@@ -83,6 +84,13 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
             (if(audio) it.optString("mimeType")=="audio/webm; codecs=\"opus\"" else
                 it.optInt("height") in 1..task.height && codec.matches(it.optString("mimeType")))
         }.maxByOrNull { it.optInt(if(audio)"bitrate" else "height") } ?: throw Problem("unsupported")
+        val artwork = if(audio && task.artwork) fetch("https://i.ytimg.com/vi/"+task.id+"/hqdefault.jpg",false,true).use { cover ->
+            val body=cover.body ?: throw Problem("network")
+            if(body.contentLength() !in 4L..262144L || body.contentType()?.let { it.type+"/"+it.subtype }!="image/jpeg")throw Problem("unsupported")
+            val bytes=ByteArray(body.contentLength().toInt())
+            java.io.DataInputStream(body.byteStream()).use { input -> input.readFully(bytes);if(input.read()!=-1)throw Problem("limit") }
+            bytes
+        } else null
         fetch(best.getString("url"),false).use { response ->
             val body = response.body ?: throw Problem("network")
             val size = body.contentLength()
@@ -107,7 +115,7 @@ internal fun download(context: Context, task: Task, stopped: () -> Boolean) {
                 resolver.openOutputStream(uri,"w")?.use { output ->
                     if(audio){
                         encodeAudio(context,input,size.toInt(),output,task.height,info.optString("title",task.id),
-                            info.optString("author"),::checkJob) { Jobs.progress(task.key,it) }
+                            info.optString("author"),artwork,::checkJob) { Jobs.progress(task.key,it) }
                         return@use
                     }
                     val header = ByteArray(12); input.readFully(header)

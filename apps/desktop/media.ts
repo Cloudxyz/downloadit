@@ -5,6 +5,7 @@ import { resource,Failure } from './network.js';
 import type { Job } from '../../packages/protocol/results.js';
 import { encode } from './encode.js';
 import { extractedUrls } from './extractor.js';
+import { attachArtwork } from '../../packages/core/artwork.js';
 
 const maxBytes=256*1024*1024;
 function player(html:string):unknown {
@@ -42,7 +43,7 @@ function stream(data:unknown,item:Job,approved?:Set<string>){
   if(!best||typeof best.url!=='string')throw new Failure('unsupported');
   return {url:best.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
 }
-export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void){
+export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void,artwork=false){
   const audio=item.format==='mp3';
   const page=await resource('https://www.youtube.com/watch?v='+item.id,'watch',signal);
   const chunks:Buffer[]=[];let size=0;
@@ -68,7 +69,16 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
       await file.sync();
     }finally{await file.close();}
     if(audio){
-      const result=await encode(await readFile(part),{quality:item.quality,title:selected.title,artist:selected.artist},signal);
+      let result:Uint8Array=await encode(await readFile(part),{quality:item.quality,title:selected.title,artist:selected.artist},signal);
+      if(artwork){
+        const cover=await resource('https://i.ytimg.com/vi/'+item.id+'/hqdefault.jpg','cover',signal);
+        try{
+          if(cover.headers['content-type']?.split(';')[0]!=='image/jpeg')throw new Failure('unsupported');
+          const pieces:Buffer[]=[];let count=0;
+          for await(const part of cover){count+=part.length;if(count>262144)throw new Failure('limit');pieces.push(part);}
+          result=attachArtwork(result,Buffer.concat(pieces));
+        }finally{cover.destroy();}
+      }
       const converted=join(dir,item.job+'.encoded.part');
       const output=await open(converted,'wx',0o600);
       try{

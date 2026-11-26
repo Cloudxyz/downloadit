@@ -144,10 +144,11 @@ internal class PeerServer(private val context: Context) {
         when(req.str("op")) {
             "list","clear" -> {require(req.keysAre("op","v","target"));if(req.str("op")=="clear")Jobs.clear()}
             "submit" -> {
-                require(req.keysAre("op","v","target","id","format","quality"))
+                val keys=arrayOf("op","v","target","id","format","quality")
+                require(req.keysAre(*keys) || req.keysAre(*keys,"artwork") && req.get("artwork") is Boolean && req.str("format")=="mp3")
                 val height=req.get("quality") as? Int ?: throw Problem("invalid")
                 val folder=context.getSharedPreferences("options",0).getString("folder","DownloadIT") ?: "DownloadIT"
-                Jobs.add(req.str("id"),height,folder,req.str("format"));startQueue(context)
+                Jobs.add(req.str("id"),height,folder,req.str("format"),req.optBoolean("artwork",false));startQueue(context)
             }
             "cancel","retry" -> {
                 require(req.keysAre("op","v","target","job"));val id=req.str("job")

@@ -15,10 +15,11 @@ function publicAddress(ip:string):boolean {
     b===88&&c===99||b===31&&c===196||b===52&&c===193||b===175&&c===48) ||
     a===198&&(b===18||b===19||b===51&&c===100) || a===203&&b===0&&c===113);
 }
-export async function resource(raw:string,kind:'watch'|'media',signal:AbortSignal):Promise<IncomingMessage>{
+export async function resource(raw:string,kind:'watch'|'media'|'cover',signal:AbortSignal):Promise<IncomingMessage>{
   if(raw.length>8192)throw new Failure('unsupported');
   const url=new URL(raw);
   const allowed=kind==='watch'?url.hostname==='www.youtube.com'&&url.pathname==='/watch':
+    kind==='cover'?url.hostname==='i.ytimg.com'&&/^\/vi\/[a-zA-Z0-9_-]{11}\/hqdefault\.jpg$/.test(url.pathname)&&!url.search:
     /^[a-z0-9-]+\.googlevideo\.com$/.test(url.hostname)&&url.pathname==='/videoplayback';
   if(!allowed||url.protocol!=='https:'||url.username||url.password||url.port||url.hash)throw new Failure('unsupported');
   const addresses=await resolve4(url.hostname);

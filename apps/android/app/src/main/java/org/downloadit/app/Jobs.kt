@@ -24,7 +24,7 @@ internal fun sharedId(text: String?): String? {
 
 internal data class Task(val key: String, val id: String, val height: Int, var state: String = "queued",
     var attempts: Int = 1, var error: String = "", var progress: Int = 0, var uri: String = "", val folder: String = "DownloadIT",
-    val format: String = "mp4")
+    val format: String = "mp4", val artwork: Boolean = false)
 
 internal fun validProfile(format: String, quality: Int) = when(format) {
     "mp3" -> quality in listOf(128,192,320)
@@ -46,7 +46,7 @@ internal object Jobs {
         repeat(array.length()) { index ->
             val obj = array.getJSONArray(index)
             val row = Task(obj.getString(0), obj.getString(1), obj.getInt(2), obj.getString(3),
-                obj.getInt(4), obj.getString(5), obj.getInt(6), obj.getString(7), obj.getString(8),obj.optString(9,"mp4"))
+                obj.getInt(4), obj.getString(5), obj.getInt(6), obj.getString(7), obj.getString(8),obj.optString(9,"mp4"),obj.optBoolean(10,false))
             require(UUID.fromString(row.key).toString() == row.key && videoIdPattern.matches(row.id) &&
                 validProfile(row.format,row.height) && row.attempts in 1..3 && folderValid(row.folder))
             if (row.state == "running") {
@@ -70,15 +70,16 @@ internal object Jobs {
     fun folderValid(name: String) = Regex("[A-Za-z0-9_-]{1,32}").matches(name)
     private fun save() {
         val all = JSONArray()
-        for (r in rows) all.put(JSONArray(listOf(r.key,r.id,r.height,r.state,r.attempts,r.error,r.progress,r.uri,r.folder,r.format)))
+        for (r in rows) all.put(JSONArray(listOf(r.key,r.id,r.height,r.state,r.attempts,r.error,r.progress,r.uri,r.folder,r.format,r.artwork)))
         check(prefs.edit().putString("items",all.toString()).commit())
     }
     @Synchronized fun snapshot() = rows.map { it.copy() }
-    @Synchronized fun add(id: String, height: Int, folder: String, format: String = "mp4"): Task {
+    @Synchronized fun add(id: String, height: Int, folder: String, format: String = "mp4", artwork: Boolean=false): Task {
         if (!videoIdPattern.matches(id) || !validProfile(format,height) || !folderValid(folder)) throw Problem("invalid")
-        if (rows.any { it.id == id && it.height == height && it.format==format }) throw Problem("duplicate")
+        if (artwork && format!="mp3")throw Problem("invalid")
+        if (rows.any { it.id == id && it.height == height && it.format==format && it.artwork==artwork }) throw Problem("duplicate")
         if (rows.size >= 64) throw Problem("limit")
-        val row = Task(UUID.randomUUID().toString(),id,height,folder=folder,format=format)
+        val row = Task(UUID.randomUUID().toString(),id,height,folder=folder,format=format,artwork=artwork)
         rows.add(row); save(); return row.copy()
     }
     @Synchronized fun retry(key: String) {

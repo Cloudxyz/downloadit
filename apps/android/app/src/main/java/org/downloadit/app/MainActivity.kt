@@ -47,6 +47,7 @@ class MainActivity: ComponentActivity() {
                     var wifi by remember { mutableStateOf(prefs.getBoolean("wifi",true)) }
                     var height by remember { mutableIntStateOf(prefs.getInt("height",720)) }
                     var bitrate by remember { mutableIntStateOf(prefs.getInt("bitrate",192)) }
+                    var artwork by remember { mutableStateOf(prefs.getBoolean("artwork",false)) }
                     var problem by remember { mutableStateOf("") }
                     var jobs by remember { mutableStateOf(Jobs.snapshot()) }
                     LaunchedEffect(Unit) { while (true) { jobs = Jobs.snapshot(); delay(700) } }
@@ -78,6 +79,10 @@ class MainActivity: ComponentActivity() {
                         OutlinedTextField(folder,{ folder=it.take(32); if(Jobs.folderValid(folder)) prefs.edit().putString("folder",folder).apply() },
                             Modifier.fillMaxWidth(),singleLine=true,label={ Text(tr("Folder in Movies and Music","Carpeta en Movies y Music")) })
                         Row(verticalAlignment=Alignment.CenterVertically) {
+                            Text(tr("Embed MP3 cover artwork","Incluir portada en MP3"),Modifier.weight(1f))
+                            Switch(artwork,{artwork=it;prefs.edit().putBoolean("artwork",it).apply()})
+                        }
+                        Row(verticalAlignment=Alignment.CenterVertically) {
                             Text(tr("Wi-Fi only","Solo Wi-Fi"),Modifier.weight(1f))
                             Switch(wifi,{wifi=it; prefs.edit().putBoolean("wifi",it).apply()})
                         }
@@ -87,7 +92,7 @@ class MainActivity: ComponentActivity() {
                                 start()
                             } },enabled=sharedId(link)!=null && Jobs.folderValid(folder)) { Text(tr("Download MP4","Descargar MP4")) }
                             OutlinedButton(onClick={act {
-                                Jobs.add(sharedId(link) ?: throw Problem("invalid"),bitrate,folder,"mp3");start()
+                                Jobs.add(sharedId(link) ?: throw Problem("invalid"),bitrate,folder,"mp3",artwork);start()
                             }},enabled=sharedId(link)!=null && Jobs.folderValid(folder)) { Text(tr("Download MP3","Descargar MP3")) }
                         }
                         if(problem.isNotEmpty()) Text(problem,color=MaterialTheme.colorScheme.error)

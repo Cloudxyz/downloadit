@@ -30,8 +30,13 @@ const destination=select(t('Download destination','Destino de descarga'),[['desk
 const format=select(t('Format','Formato'),[['mp3','MP3'],['mp4','MP4']]);
 format.value=params.get('format')==='mp3'?'mp3':'mp4';
 const profile=select(t('Quality','Calidad'),[]);
+const coverLabel=document.createElement('label'),cover=document.createElement('input');
+cover.type='checkbox';coverLabel.append(cover,t('Embed cover artwork','Incluir portada'));form.append(coverLabel);
+void chrome.storage.local.get('artwork').then(p=>{cover.checked=p.artwork===true;});
+cover.onchange=()=>void chrome.storage.local.set({artwork:cover.checked});
 async function profiles() {
   const kind=format.value as Format;
+  coverLabel.hidden=kind!=='mp3';
   const saved=await chrome.storage.local.get(kind);
   if(format.value!==kind)return;
   profile.replaceChildren();
@@ -46,7 +51,8 @@ if(videoId(id)) {
   button.textContent=t('Download authorized media','Descargar contenido autorizado');
   const info=document.createElement('p');info.textContent=t('Video ID ','ID de video ')+id;
   form.append(info,button);
-  button.onclick=()=>void act({v:1,op:'submit',id,format:format.value as Format,quality:Number(profile.value),target:destination.value});
+  button.onclick=()=>void act({v:1,op:'submit',id,format:format.value as Format,quality:Number(profile.value),target:destination.value,
+    ...(format.value==='mp3'?{artwork:cover.checked}:{})});
 }
 let active=false;
 let last='';

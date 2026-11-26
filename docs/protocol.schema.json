@@ -46,6 +46,9 @@
     },
     "job": {
       "$ref": "#/$defs/uuid"
+    },
+    "artwork": {
+      "type": "boolean"
     }
   },
   "$defs": {
@@ -66,7 +69,7 @@
         "format",
         "quality"
       ],
-      "maxProperties": 6,
+      "maxProperties": 7,
       "oneOf": [
         {
           "properties": {
@@ -94,6 +97,11 @@
                 1080
               ]
             }
+          },
+          "not": {
+            "required": [
+              "artwork"
+            ]
           }
         }
       ]

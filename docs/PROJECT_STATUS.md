@@ -15,3 +15,5 @@ Windows MP3 conversion now accepts bounded direct Opus/WebM input and encodes 12
 Android MP3 now selects direct Opus audio and publishes tagged MP3s through pending Music entries. The debug APK contains the same bounded FFmpeg image and requires a compatible Android System WebView JavaScriptSandbox. Physical encoding and Pulsar indexing remain unverified.
 
 The optional Windows yt-dlp worker is tied to release 2026.11.23. Preparation verified the upstream OpenPGP signature and SHA-256 digest. Lint, build and Python syntax checks passed. The installed Ubuntu WSL environment lacks bubblewrap, so optional extraction is unavailable here. The default broker remains available.
+
+Cover artwork is opt-in on each platform. Jobs persist the setting and add a bounded JPEG as an ID3 front-cover frame. Lint, desktop/extension builds and the Android debug build passed; player display has not been exercised.

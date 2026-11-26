@@ -1,4 +1,5 @@
 import type LibAV from '@libav.js/variant-obsolete';
+export {attachArtwork} from './artwork.js';
 
 export type AudioInfo={quality:number;title:string;artist:string};
 export async function convert(av:LibAV.LibAV,bytes:Uint8Array,info:AudioInfo):Promise<Uint8Array>{

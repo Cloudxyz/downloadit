@@ -15,6 +15,8 @@ function audioChunk(){
   }};
   const compiled=await WebAssembly.compile(await take('wasm'));
   const av=await LibAVFactory({instantiateWasm:(imports,ready)=>ready(new WebAssembly.Instance(compiled,imports))});
-  encodedAudio=await DownloadAudio.convert(av,await take('media'),JSON.parse(new TextDecoder().decode(await take('info'))));
+  const info=JSON.parse(new TextDecoder().decode(await take('info')));
+  encodedAudio=await DownloadAudio.convert(av,await take('media'),info);
+  if(info.artwork)encodedAudio=DownloadAudio.attachArtwork(encodedAudio,await take('cover'));
   return String(encodedAudio.length);
 })()
