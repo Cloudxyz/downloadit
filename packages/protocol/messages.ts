@@ -2,7 +2,7 @@ import { quality, videoId, type Format } from '../core/video.js';
 import { exact, record } from '../security/fields.js';
 
 export type Request =
-  | { v: 1; op: 'submit'; id: string; format: Format; quality: number; target: string; artwork?:boolean }
+  | { v: 1; op: 'submit'; id: string; format: Format; quality: number; target: string; artwork?:boolean; storage?:'downloads'|'library' }
   | { v: 1; op: 'cancel' | 'retry'; job: string; target: string }
   | { v: 1; op: 'list' | 'clear'; target: string };
 
@@ -15,6 +15,10 @@ export function request(value: unknown): value is Request {
   switch (value.op) {
     case 'submit': {
       const keys=[...base,'id','format','quality'];
+      if(Object.hasOwn(value,'storage')){
+        if(value.target!=='desktop'||!(value.storage==='library'||value.storage==='downloads'))return false;
+        keys.push('storage');
+      }
       if(Object.hasOwn(value,'artwork')){
         if(value.format!=='mp3'||typeof value.artwork!=='boolean')return false;
         keys.push('artwork');

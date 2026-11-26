@@ -27,6 +27,10 @@ function select(label:string,options:[string,string][],parent:HTMLElement=form) 
   wrapper.append(input);parent.append(wrapper);return input;
 }
 const destination=select(t('Download destination','Destino de descarga'),[['desktop',t('This PC','Este equipo')]]);
+const storage=select(t('Folder on this PC','Carpeta en este equipo'),[['downloads','Downloads / DownloadIT'],
+  ['library',t('Music or Videos / DownloadIT','Music o Videos / DownloadIT')]]);
+void chrome.storage.local.get('storage').then(p=>{storage.value=p.storage==='library'?'library':'downloads';});
+storage.onchange=()=>void chrome.storage.local.set({storage:storage.value});
 const format=select(t('Format','Formato'),[['mp3','MP3'],['mp4','MP4']]);
 format.value=params.get('format')==='mp3'?'mp3':'mp4';
 const profile=select(t('Quality','Calidad'),[]);
@@ -52,7 +56,7 @@ if(videoId(id)) {
   const info=document.createElement('p');info.textContent=t('Video ID ','ID de video ')+id;
   form.append(info,button);
   button.onclick=()=>void act({v:1,op:'submit',id,format:format.value as Format,quality:Number(profile.value),target:destination.value,
-    ...(format.value==='mp3'?{artwork:cover.checked}:{})});
+    ...(format.value==='mp3'?{artwork:cover.checked}:{}),...(destination.value==='desktop'?{storage:storage.value==='library'?'library':'downloads'}:{})});
 }
 let active=false;
 let last='';
@@ -104,10 +108,10 @@ async function manage(message:Management){
     for(const id of data.devices)destination.add(new Option('Android · '+id.slice(0,8),id));
     destination.value=typeof preferred==='string'&&data.devices.includes(preferred)?preferred:(data.devices[0]??'desktop');
     if(preferred==='desktop')destination.value='desktop';
-    forget.disabled=destination.value==='desktop';last='';status.textContent='';
+    forget.disabled=destination.value==='desktop';storage.parentElement!.hidden=!forget.disabled;last='';status.textContent='';
   }catch{status.textContent=messages.unavailable;}finally{active=false;}
 }
-destination.onchange=()=>{void chrome.storage.local.set({destination:destination.value});forget.disabled=destination.value==='desktop';last='';refresh();};
+destination.onchange=()=>{void chrome.storage.local.set({destination:destination.value});forget.disabled=destination.value==='desktop';storage.parentElement!.hidden=!forget.disabled;last='';refresh();};
 forget.onclick=()=>void manage({v:1,op:'forget',id:destination.value});
 pair.onclick=async()=>{
   if(scanning){scanning.abort();return;}

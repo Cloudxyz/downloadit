@@ -43,13 +43,14 @@ function stream(data:unknown,item:Job,approved?:Set<string>){
   if(!best||typeof best.url!=='string')throw new Failure('unsupported');
   return {url:best.url,title:String(data.videoDetails.title??item.id).slice(0,160),artist:String(data.videoDetails.author??'').slice(0,160)};
 }
-export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void,artwork=false){
+export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(p:number)=>void,artwork:boolean,name:(title:string)=>string){
   const audio=item.format==='mp3';
   const page=await resource('https://www.youtube.com/watch?v='+item.id,'watch',signal);
   const chunks:Buffer[]=[];let size=0;
   for await(const chunk of page){size+=chunk.length;if(size>4*1024*1024)throw new Failure('limit');chunks.push(chunk);}
   const html=Buffer.concat(chunks),data=player(html.toString('utf8'));
   const selected=stream(data,item,await extractedUrls(item.id,html,signal));
+  const destination=join(dir,name(selected.title));
   const media=await resource(selected.url,'media',signal);
   const part=join(dir,item.job+'.part');
   try{
@@ -84,7 +85,7 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
       try{
         try{await output.writeFile(result);await output.sync();}finally{await output.close();}
         signal.throwIfAborted();
-        await link(converted,join(dir,item.id+'-'+item.job+'.mp3'));
+        await link(converted,destination);
       }finally{await unlink(converted);}
       return;
     }
@@ -92,6 +93,6 @@ export async function retrieve(item:Job,dir:string,signal:AbortSignal,progress:(
     try{const data=Buffer.alloc(12);await header.read(data,0,12,0);if(data.toString('ascii',4,8)!=='ftyp')throw new Failure('unsupported');}finally{await header.close();}
     signal.throwIfAborted();
     // A generated job suffix allows safe crash reconciliation. link fails if the destination exists.
-    await link(part,join(dir,item.id+'-'+item.job+'.mp4'));
+    await link(part,destination);
   }finally{media.destroy();await unlink(part).catch(()=>{});}
 }

@@ -49,6 +49,12 @@
     },
     "artwork": {
       "type": "boolean"
+    },
+    "storage": {
+      "enum": [
+        "library",
+        "downloads"
+      ]
     }
   },
   "$defs": {
@@ -69,7 +75,7 @@
         "format",
         "quality"
       ],
-      "maxProperties": 7,
+      "maxProperties": 8,
       "oneOf": [
         {
           "properties": {
@@ -104,7 +110,24 @@
             ]
           }
         }
-      ]
+      ],
+      "not": {
+        "required": [
+          "job"
+        ]
+      },
+      "if": {
+        "required": [
+          "storage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "target": {
+            "const": "desktop"
+          }
+        }
+      }
     },
     {
       "properties": {
