@@ -38,17 +38,18 @@ class MainActivity: ComponentActivity() {
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         Jobs.init(this)
         val prefs = getSharedPreferences("options",0)
-        val shared = if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") intent.getStringExtra(Intent.EXTRA_TEXT)?.take(2048) ?: "" else ""
+        val shared = if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") intent.getStringExtra(Intent.EXTRA_TEXT) else null
+        val initialLink=shareLink(shared)
         setContent {
             MaterialTheme(colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()) {
                 Surface(Modifier.fillMaxSize()) {
-                    var link by remember { mutableStateOf(shared) }
+                    var link by remember { mutableStateOf(initialLink) }
                     var folder by remember { mutableStateOf(prefs.getString("folder","DownloadIT") ?: "DownloadIT") }
                     var wifi by remember { mutableStateOf(prefs.getBoolean("wifi",true)) }
                     var height by remember { mutableIntStateOf(prefs.getInt("height",720)) }
                     var bitrate by remember { mutableIntStateOf(prefs.getInt("bitrate",192)) }
                     var artwork by remember { mutableStateOf(prefs.getBoolean("artwork",false)) }
-                    var problem by remember { mutableStateOf("") }
+                    var problem by remember { mutableStateOf(if(shared!=null&&initialLink.isEmpty())message("invalid") else "") }
                     var jobs by remember { mutableStateOf(Jobs.snapshot()) }
                     LaunchedEffect(Unit) { while (true) { jobs = Jobs.snapshot(); delay(700) } }
                     fun act(action: () -> Unit) {
@@ -68,6 +69,10 @@ class MainActivity: ComponentActivity() {
                         Text("Download IT",style=MaterialTheme.typography.headlineLarge)
                         OutlinedTextField(link,{ link = it.take(2048) },Modifier.fillMaxWidth(),singleLine=true,label={ Text(tr("YouTube link","Enlace de YouTube")) })
                         Text(tr("Download only media you are authorized to save.","Descarga solo contenido que tengas autorización para guardar."))
+                        if(initialLink==link && shared?.startsWith("Download IT · MP3")==true)
+                            Text(tr("Selected in Brave: MP3","Seleccionado en Brave: MP3"))
+                        if(initialLink==link && shared?.startsWith("Download IT · MP4")==true)
+                            Text(tr("Selected in Brave: MP4","Seleccionado en Brave: MP4"))
                         Text(tr("Video resolution","Resolución de video"))
                         Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                             for (n in listOf(480,720,1080)) FilterChip(height == n,{ height=n; prefs.edit().putInt("height",n).apply() },{ Text(n.toString()+"p") })

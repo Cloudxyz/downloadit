@@ -8,6 +8,12 @@ import org.json.JSONObject
 import java.util.UUID
 
 internal val videoIdPattern = Regex("[A-Za-z0-9_-]{11}")
+internal fun shareLink(text: String?): String {
+    if(text==null || text.length>2048)return ""
+    val links=Regex("""https?://\S+""",RegexOption.IGNORE_CASE).findAll(text).take(2).toList()
+    val link=links.singleOrNull()?.value ?: return ""
+    return if(sharedId(link)!=null)link else ""
+}
 internal fun sharedId(text: String?): String? {
     if (text == null || text.length > 2048 || text.any { it <= ' ' || it == '\\' }) return null
     val u = Uri.parse(text)

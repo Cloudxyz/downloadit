@@ -18,6 +18,7 @@ This is a source-build MVP. The repository contains a compiled-path implementati
 - The public watch document must expose a compatible direct URL. Common challenges, private videos, live content, redirects and separately encoded video tracks can make a requested download unavailable. MP4 quality is a ceiling and the source is never enlarged.
 - MP4 is capped at 256 MiB and one hour. MP3 conversion is capped at 16 MiB of Opus input and 15 minutes of audio. Each queue holds up to 64 jobs. Each job allows three attempts, including the first.
 - Wi-Fi-only defaults to enabled on Android. Pairing requires private IPv4 Wi-Fi and a visible receiver. The default Android retrieval path does not depend on WSL or the native youtubedl-android binaries.
+- Mobile extension controls pass the chosen format to the system Share Sheet. The app accepts one supported link in shared text and asks the user to confirm. Browsers without Web Share show the manual sharing action.
 - Source builds, developer installation and unpacked extension loading are available. Signed installers, APK releases, store publication and device compatibility certification are pending.
 - CodeGraph indexes local source and shared symbols. Native Messaging, Android intents and service lifecycle, TLS messages, generated WebAssembly bindings and OS keystore calls cross runtime boundaries that a static index cannot verify.
 

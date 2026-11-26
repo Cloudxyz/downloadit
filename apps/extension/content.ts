@@ -23,8 +23,12 @@ function mount() {
     button.textContent = (spanish ? 'Descargar ' : 'Download ') + format.toUpperCase();
     button.onclick = event => {
       if (!event.isTrusted || fromUrl(location.href) !== id) return;
-      if (/Android/i.test(navigator.userAgent) && navigator.share) {
-        void navigator.share({url:'https://www.youtube.com/watch?v='+id}).catch(() => {});
+      if (/Android/i.test(navigator.userAgent)) {
+        const help=()=>{button.textContent=spanish?'Compartir → Download IT':'Share → Download IT';};
+        if(typeof navigator.share!=='function'){help();return;}
+        void navigator.share({text:'Download IT · '+format.toUpperCase(),url:'https://www.youtube.com/watch?v='+id}).catch((e:unknown)=>{
+          if(!(e instanceof DOMException&&e.name==='AbortError'))help();
+        });
       } else {
         void chrome.runtime.sendMessage({op:'open',id,format}).catch(() => {
           button.textContent = spanish ? 'Recarga la página' : 'Reload this page';
