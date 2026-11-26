@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Download IT request v1",
+  "type": "object",
+  "required": [
+    "v",
+    "op",
+    "target"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "op": {
+      "enum": [
+        "submit",
+        "list",
+        "clear",
+        "cancel",
+        "retry"
+      ]
+    },
+    "target": {
+      "anyOf": [
+        {
+          "const": "desktop"
+        },
+        {
+          "$ref": "#/$defs/uuid"
+        }
+      ]
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{11}$"
+    },
+    "format": {
+      "enum": [
+        "mp3",
+        "mp4"
+      ]
+    },
+    "quality": {
+      "type": "integer"
+    },
+    "job": {
+      "$ref": "#/$defs/uuid"
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "op": {
+          "const": "submit"
+        }
+      },
+      "required": [
+        "id",
+        "format",
+        "quality"
+      ],
+      "maxProperties": 6,
+      "oneOf": [
+        {
+          "properties": {
+            "format": {
+              "const": "mp3"
+            },
+            "quality": {
+              "enum": [
+                128,
+                192,
+                320
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "format": {
+              "const": "mp4"
+            },
+            "quality": {
+              "enum": [
+                480,
+                720,
+                1080
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "properties": {
+        "op": {
+          "enum": [
+            "cancel",
+            "retry"
+          ]
+        }
+      },
+      "required": [
+        "job"
+      ],
+      "maxProperties": 4
+    },
+    {
+      "properties": {
+        "op": {
+          "enum": [
+            "list",
+            "clear"
+          ]
+        }
+      },
+      "maxProperties": 3
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+packages:
+  - apps/*
+  - packages/*
+allowBuilds: {}
+ignoreScripts: true
+minimumReleaseAge: 1440

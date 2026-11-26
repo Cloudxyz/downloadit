@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "useUnknownInCatchVariables": true,
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "chrome"
+    ],
+    "rootDir": ".",
+    "outDir": "dist",
+    "skipLibCheck": true
+  },
+  "include": [
+    "packages/**/*.ts",
+    "apps/**/*.ts"
+  ]
+}
